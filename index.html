@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#4F46E5" />
+    <meta name="description" content="Track your daily expenses and income with ease. Features categories, payment methods, reminders, and reports." />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content="Expenses" />
+    
+    <!-- iOS Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Expenses" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.svg" />
+    
+    <!-- MS Meta Tags -->
+    <meta name="msapplication-TileColor" content="#4F46E5" />
+    <meta name="msapplication-tap-highlight" content="no" />
+    
+    <!-- Open Graph / Social -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Daily Expense Manager" />
+    <meta property="og:description" content="Track your daily expenses and income with ease" />
+    <meta property="og:site_name" content="Daily Expense Manager" />
+    
+    <title>Daily Expense Manager</title>
+    <style>
+      /* Initial loading styles */
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background-color: #f3f4f6;
+      }
+      .loading-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        padding: 20px;
+      }
+      .loading-spinner {
+        width: 48px;
+        height: 48px;
+        border: 4px solid #e5e7eb;
+        border-top-color: #4F46E5;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+      .loading-text {
+        margin-top: 16px;
+        color: #6b7280;
+        font-size: 14px;
+      }
+      .loading-title {
+        margin-top: 24px;
+        color: #1f2937;
+        font-size: 24px;
+        font-weight: bold;
+      }
+      .loading-emoji {
+        font-size: 48px;
+        margin-bottom: 16px;
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+      /* Hide loading when app is ready */
+      #root:not(:empty) + .loading-container,
+      #root:not(:empty) ~ .loading-container {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    
+    <!-- Loading state shown while React loads -->
+    <div class="loading-container" id="loading">
+      <div class="loading-emoji">💰</div>
+      <div class="loading-title">Daily Expense Manager</div>
+      <div class="loading-spinner"></div>
+      <div class="loading-text">Loading your expenses...</div>
+    </div>
+
+    <script type="module" src="/src/main.jsx"></script>
+    
+    <!-- Hide loading once script starts executing -->
+    <script>
+      // Health check function
+      window.healthCheck = function() {
+        return {
+          status: 'ok',
+          app: 'Daily Expense Manager',
+          version: '1.0.0',
+          timestamp: new Date().toISOString(),
+          localStorage: typeof localStorage !== 'undefined',
+          react: typeof React !== 'undefined' || document.getElementById('root').children.length > 0
+        };
+      };
+      
+      // Log health status
+      console.log('🏥 Health Check:', window.healthCheck());
+      
+      // Remove loading after React renders (fallback)
+      setTimeout(function() {
+        var loading = document.getElementById('loading');
+        var root = document.getElementById('root');
+        if (loading && root && root.children.length > 0) {
+          loading.style.display = 'none';
+        }
+      }, 100);
+    </script>
+
+    <!-- No-script fallback -->
+    <noscript>
+      <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; font-family: sans-serif; text-align: center;">
+        <div style="font-size: 48px;">⚠️</div>
+        <h1 style="color: #1f2937; margin-top: 16px;">JavaScript Required</h1>
+        <p style="color: #6b7280;">Please enable JavaScript to use the Daily Expense Manager app.</p>
+      </div>
+    </noscript>
+  </body>
+</html>
