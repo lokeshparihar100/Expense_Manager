@@ -4,7 +4,7 @@ import { useSettings } from '../context/SettingsContext';
 
 const ReminderModal = ({ reminders, onClose, onDismiss, onMarkDone }) => {
   const navigate = useNavigate();
-  const { formatAmount, hideAmounts } = useSettings();
+  const { formatAmount, hideAmounts, isDark } = useSettings();
   const [currentIndex, setCurrentIndex] = useState(0);
 
   if (!reminders || reminders.length === 0) return null;
@@ -58,7 +58,7 @@ const ReminderModal = ({ reminders, onClose, onDismiss, onMarkDone }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden slide-up">
+      <div className={`rounded-2xl shadow-xl w-full max-w-md overflow-hidden slide-up ${isDark ? 'bg-slate-800' : 'bg-white'}`}>
         {/* Header */}
         <div className={`${getUrgencyColor()} text-white p-4`}>
           <div className="flex items-center justify-between mb-2">
@@ -78,11 +78,13 @@ const ReminderModal = ({ reminders, onClose, onDismiss, onMarkDone }) => {
           {/* Transaction Type Badge */}
           <div className="flex items-center justify-between mb-4">
             <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-              isExpense ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+              isExpense 
+                ? isDark ? 'bg-red-900/50 text-red-300' : 'bg-red-100 text-red-700'
+                : isDark ? 'bg-green-900/50 text-green-300' : 'bg-green-100 text-green-700'
             }`}>
               {isExpense ? '💸 Upcoming Expense' : '💰 Expected Income'}
             </span>
-            <span className="text-sm text-gray-500">
+            <span className={`text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
               {new Date(currentReminder.date + 'T12:00:00').toLocaleDateString('en-US', {
                 weekday: 'short',
                 month: 'short',
@@ -93,58 +95,64 @@ const ReminderModal = ({ reminders, onClose, onDismiss, onMarkDone }) => {
 
           {/* Amount */}
           <div className={`text-center py-4 rounded-xl mb-4 ${
-            isExpense ? 'bg-red-50' : 'bg-green-50'
+            isExpense 
+              ? isDark ? 'bg-red-900/30' : 'bg-red-50'
+              : isDark ? 'bg-green-900/30' : 'bg-green-50'
           }`}>
-            <p className="text-sm text-gray-500 mb-1">Amount</p>
+            <p className={`text-sm mb-1 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+              Amount {currentReminder.currency && `(${currentReminder.currency})`}
+            </p>
             <p className={`text-3xl font-bold ${
-              isExpense ? 'text-red-600' : 'text-green-600'
+              isExpense 
+                ? isDark ? 'text-red-400' : 'text-red-600'
+                : isDark ? 'text-green-400' : 'text-green-600'
             } ${hideAmounts ? 'blur-md select-none' : ''}`}>
-              {isExpense ? '-' : '+'}{formatAmount(currentReminder.amount)}
+              {isExpense ? '-' : '+'}{formatAmount(currentReminder.amount, currentReminder.currency)}
             </p>
           </div>
 
           {/* Details */}
           <div className="space-y-3 mb-4">
             <div className="flex items-center gap-3">
-              <span className="text-gray-400 w-6">📝</span>
+              <span className={`w-6 ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>📝</span>
               <div>
-                <p className="text-sm text-gray-500">Description</p>
-                <p className="font-medium text-gray-900">{currentReminder.description}</p>
+                <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Description</p>
+                <p className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{currentReminder.description}</p>
               </div>
             </div>
             
             <div className="flex items-center gap-3">
-              <span className="text-gray-400 w-6">📁</span>
+              <span className={`w-6 ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>📁</span>
               <div>
-                <p className="text-sm text-gray-500">Category</p>
-                <p className="font-medium text-gray-900">{currentReminder.category}</p>
+                <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Category</p>
+                <p className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{currentReminder.category}</p>
               </div>
             </div>
 
             <div className="flex items-center gap-3">
-              <span className="text-gray-400 w-6">👤</span>
+              <span className={`w-6 ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>👤</span>
               <div>
-                <p className="text-sm text-gray-500">Payee</p>
-                <p className="font-medium text-gray-900">{currentReminder.payee}</p>
+                <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Payee</p>
+                <p className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{currentReminder.payee}</p>
               </div>
             </div>
 
             {currentReminder.notes && (
               <div className="flex items-center gap-3">
-                <span className="text-gray-400 w-6">💬</span>
+                <span className={`w-6 ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>💬</span>
                 <div>
-                  <p className="text-sm text-gray-500">Notes</p>
-                  <p className="font-medium text-gray-900">{currentReminder.notes}</p>
+                  <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Notes</p>
+                  <p className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{currentReminder.notes}</p>
                 </div>
               </div>
             )}
 
             {currentReminder.reminderType === 'specific_date' && currentReminder.reminderDate && (
               <div className="flex items-center gap-3">
-                <span className="text-gray-400 w-6">🔔</span>
+                <span className={`w-6 ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>🔔</span>
                 <div>
-                  <p className="text-sm text-gray-500">Reminder Set For</p>
-                  <p className="font-medium text-gray-900">
+                  <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Reminder Set For</p>
+                  <p className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>
                     {new Date(currentReminder.reminderDate + 'T12:00:00').toLocaleDateString('en-US', {
                       weekday: 'long',
                       month: 'long',
@@ -182,13 +190,21 @@ const ReminderModal = ({ reminders, onClose, onDismiss, onMarkDone }) => {
           <div className="grid grid-cols-2 gap-3">
             <button
               onClick={handleDismiss}
-              className="py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors"
+              className={`py-3 rounded-xl font-medium transition-colors ${
+                isDark 
+                  ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' 
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
             >
               Remind Later
             </button>
             <button
               onClick={handleNext}
-              className="py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors"
+              className={`py-3 rounded-xl font-medium transition-colors ${
+                isDark 
+                  ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' 
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
             >
               {currentIndex < totalReminders - 1 ? 'Next →' : 'Close'}
             </button>

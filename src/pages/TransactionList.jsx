@@ -5,11 +5,12 @@ import { useSettings } from '../context/SettingsContext';
 import TransactionCard from '../components/TransactionCard';
 import { ConfirmModal } from '../components/Modal';
 import { formatDate } from '../utils/storage';
+import { getUsedCurrencies } from '../utils/currency';
 
 const TransactionList = () => {
   const navigate = useNavigate();
   const { transactions, tags, deleteTransaction } = useExpense();
-  const { isDark } = useSettings();
+  const { isDark, currencies } = useSettings();
   const [deleteId, setDeleteId] = useState(null);
   
   // Filters
@@ -18,12 +19,16 @@ const TransactionList = () => {
     category: 'all',
     paymentMethod: 'all',
     status: 'all',
+    currency: 'all',
     search: '',
     startDate: '',
     endDate: ''
   });
 
   const [showFilters, setShowFilters] = useState(false);
+
+  // Get currencies used in transactions
+  const usedCurrencies = useMemo(() => getUsedCurrencies(transactions), [transactions]);
 
   // Filter transactions
   const filteredTransactions = useMemo(() => {
@@ -32,6 +37,7 @@ const TransactionList = () => {
       if (filters.category !== 'all' && t.category !== filters.category) return false;
       if (filters.paymentMethod !== 'all' && t.paymentMethod !== filters.paymentMethod) return false;
       if (filters.status !== 'all' && t.status !== filters.status) return false;
+      if (filters.currency !== 'all' && (t.currency || 'USD') !== filters.currency) return false;
       if (filters.search && !t.description.toLowerCase().includes(filters.search.toLowerCase()) &&
           !t.payee.toLowerCase().includes(filters.search.toLowerCase())) return false;
       if (filters.startDate && new Date(t.date) < new Date(filters.startDate)) return false;
@@ -74,6 +80,7 @@ const TransactionList = () => {
       category: 'all',
       paymentMethod: 'all',
       status: 'all',
+      currency: 'all',
       search: '',
       startDate: '',
       endDate: ''
@@ -213,6 +220,39 @@ const TransactionList = () => {
                 ))}
               </select>
             </div>
+
+            {/* Currency */}
+            {usedCurrencies.length > 1 && (
+              <div className="col-span-2">
+                <label className={`block text-xs font-medium mb-1 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Currency</label>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => handleFilterChange('currency', 'all')}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                      filters.currency === 'all'
+                        ? 'bg-primary-500 text-white'
+                        : isDark ? 'bg-slate-600 text-slate-200 hover:bg-slate-500' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    All
+                  </button>
+                  {usedCurrencies.map(code => (
+                    <button
+                      key={code}
+                      onClick={() => handleFilterChange('currency', code)}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1 ${
+                        filters.currency === code
+                          ? 'bg-primary-500 text-white'
+                          : isDark ? 'bg-slate-600 text-slate-200 hover:bg-slate-500' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      <span>{currencies[code]?.flag}</span>
+                      <span>{code}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Date Range */}
             <div>

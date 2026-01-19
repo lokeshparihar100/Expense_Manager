@@ -138,43 +138,59 @@ export const ExpenseProvider = ({ children }) => {
     return tag?.icon || '📦';
   };
 
-  // Get statistics
-  const getStats = (period = 'all') => {
+  // Get statistics with optional currency conversion
+  const getStats = (period = 'all', targetCurrency = null, exchangeRates = null) => {
     let filteredTransactions = [...transactions];
     
     const now = new Date();
     if (period === 'today') {
-      const today = now.toISOString().split('T')[0];
+      const today = new Date().toISOString().split('T')[0];
       filteredTransactions = transactions.filter(t => t.date === today);
     } else if (period === 'week') {
-      const weekAgo = new Date(now.setDate(now.getDate() - 7));
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
       filteredTransactions = transactions.filter(t => new Date(t.date) >= weekAgo);
     } else if (period === 'month') {
-      const monthAgo = new Date(now.setMonth(now.getMonth() - 1));
+      const monthAgo = new Date();
+      monthAgo.setMonth(monthAgo.getMonth() - 1);
       filteredTransactions = transactions.filter(t => new Date(t.date) >= monthAgo);
     }
 
+    // Helper to convert amount if needed
+    const convertAmount = (amount, fromCurrency) => {
+      if (!targetCurrency || !exchangeRates || fromCurrency === targetCurrency) {
+        return parseFloat(amount) || 0;
+      }
+      const fromRate = exchangeRates[fromCurrency] || 1;
+      const toRate = exchangeRates[targetCurrency] || 1;
+      const amountInUSD = (parseFloat(amount) || 0) / fromRate;
+      return amountInUSD * toRate;
+    };
+
     const totalExpenses = filteredTransactions
       .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+      .reduce((sum, t) => sum + convertAmount(t.amount, t.currency || 'USD'), 0);
 
     const totalIncome = filteredTransactions
       .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+      .reduce((sum, t) => sum + convertAmount(t.amount, t.currency || 'USD'), 0);
 
     const byCategory = filteredTransactions
       .filter(t => t.type === 'expense')
       .reduce((acc, t) => {
-        acc[t.category] = (acc[t.category] || 0) + parseFloat(t.amount);
+        acc[t.category] = (acc[t.category] || 0) + convertAmount(t.amount, t.currency || 'USD');
         return acc;
       }, {});
 
     const byPaymentMethod = filteredTransactions
       .filter(t => t.type === 'expense')
       .reduce((acc, t) => {
-        acc[t.paymentMethod] = (acc[t.paymentMethod] || 0) + parseFloat(t.amount);
+        acc[t.paymentMethod] = (acc[t.paymentMethod] || 0) + convertAmount(t.amount, t.currency || 'USD');
         return acc;
       }, {});
+
+    // Get unique currencies used
+    const currenciesUsed = [...new Set(filteredTransactions.map(t => t.currency || 'USD'))];
 
     return {
       totalExpenses,
@@ -182,7 +198,9 @@ export const ExpenseProvider = ({ children }) => {
       balance: totalIncome - totalExpenses,
       byCategory,
       byPaymentMethod,
-      transactionCount: filteredTransactions.length
+      transactionCount: filteredTransactions.length,
+      currenciesUsed,
+      displayCurrency: targetCurrency
     };
   };
 

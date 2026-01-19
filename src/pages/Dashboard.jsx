@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useExpense } from '../context/ExpenseContext';
 import { useSettings } from '../context/SettingsContext';
@@ -7,16 +7,29 @@ import TransactionCard from '../components/TransactionCard';
 import { ConfirmModal } from '../components/Modal';
 import ReminderModal from '../components/ReminderModal';
 import { getUpcomingReminders, dismissForSession, getReminderSettings } from '../utils/reminders';
+import { getUsedCurrencies } from '../utils/currency';
 
 const Dashboard = () => {
   const { transactions, updateTransaction, deleteTransaction, getStats, isLoading } = useExpense();
-  const { isDark } = useSettings();
+  const { isDark, nativeCurrency, exchangeRates, currencies } = useSettings();
   const [deleteId, setDeleteId] = useState(null);
   const [period, setPeriod] = useState('month');
   const [showReminders, setShowReminders] = useState(false);
   const [upcomingReminders, setUpcomingReminders] = useState([]);
 
-  const stats = getStats(period);
+  // Check if there are multiple currencies in transactions
+  const usedCurrencies = useMemo(() => getUsedCurrencies(transactions), [transactions]);
+  const hasMultipleCurrencies = usedCurrencies.length > 1;
+
+  // Get stats with currency conversion if multiple currencies
+  const stats = useMemo(() => {
+    if (hasMultipleCurrencies) {
+      return getStats(period, nativeCurrency, exchangeRates);
+    }
+    return getStats(period);
+  }, [period, hasMultipleCurrencies, nativeCurrency, exchangeRates, transactions]);
+
+  const displayCurrency = hasMultipleCurrencies ? nativeCurrency : null;
   const recentTransactions = transactions.slice(0, 5);
 
   // Check for reminders on component mount
@@ -93,14 +106,64 @@ const Dashboard = () => {
         ))}
       </div>
 
+      {/* Multi-currency indicator */}
+      {hasMultipleCurrencies && (
+        <div className={`mb-4 p-3 rounded-xl flex items-center gap-2 ${
+          isDark ? 'bg-blue-900/30' : 'bg-blue-50'
+        }`}>
+          <span className="text-xl">💱</span>
+          <div className="flex-1">
+            <p className={`text-sm font-medium ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
+              Multi-currency mode
+            </p>
+            <p className={`text-xs ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+              Showing totals converted to {currencies[nativeCurrency]?.name} ({nativeCurrency})
+            </p>
+          </div>
+          <div className="flex gap-1">
+            {usedCurrencies.slice(0, 4).map(code => (
+              <span 
+                key={code}
+                className={`text-sm ${isDark ? 'bg-blue-800 text-blue-200' : 'bg-blue-100 text-blue-700'} px-1.5 py-0.5 rounded`}
+              >
+                {currencies[code]?.flag}
+              </span>
+            ))}
+            {usedCurrencies.length > 4 && (
+              <span className={`text-xs ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+                +{usedCurrencies.length - 4}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Stats Cards */}
       <div className="grid grid-cols-2 gap-4 mb-6">
-        <StatCard title="Income" amount={stats.totalIncome} type="income" icon="💰" />
-        <StatCard title="Expenses" amount={stats.totalExpenses} type="expense" icon="💸" />
+        <StatCard 
+          title="Income" 
+          amount={stats.totalIncome} 
+          type="income" 
+          icon="💰" 
+          currency={displayCurrency}
+        />
+        <StatCard 
+          title="Expenses" 
+          amount={stats.totalExpenses} 
+          type="expense" 
+          icon="💸" 
+          currency={displayCurrency}
+        />
       </div>
       
       <div className="mb-6">
-        <StatCard title="Balance" amount={stats.balance} type="balance" icon="📊" />
+        <StatCard 
+          title="Balance" 
+          amount={stats.balance} 
+          type="balance" 
+          icon="📊" 
+          currency={displayCurrency}
+        />
       </div>
 
       {/* Quick Actions */}

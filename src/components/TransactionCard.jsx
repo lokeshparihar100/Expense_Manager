@@ -71,9 +71,14 @@ const TransactionCard = ({ transaction, onDelete }) => {
           <p className={`font-bold text-lg ${isExpense ? 'text-red-500' : 'text-green-500'} ${
             hideAmounts ? 'blur-md select-none' : ''
           }`}>
-            {isExpense ? '-' : '+'}{formatAmount(transaction.amount)}
+            {isExpense ? '-' : '+'}{formatAmount(transaction.amount, transaction.currency)}
           </p>
-          <p className={`text-xs mt-1 ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>
+          {transaction.currency && (
+            <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+              {transaction.currency}
+            </p>
+          )}
+          <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>
             {formatDate(transaction.date)}
           </p>
         </div>

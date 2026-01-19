@@ -1,11 +1,10 @@
 // Export utilities for reports
+import { CURRENCIES } from './currency';
 
 // Format currency for export
-const formatCurrency = (amount) => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD'
-  }).format(amount);
+const formatCurrency = (amount, currencyCode = 'USD') => {
+  const currency = CURRENCIES[currencyCode] || CURRENCIES.USD;
+  return `${currency.symbol}${Math.abs(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
 // Format date for export
@@ -30,6 +29,7 @@ export const exportToCSV = (transactions, filename = 'expense_report') => {
     'Type',
     'Description',
     'Amount',
+    'Currency',
     'Category',
     'Payee',
     'Payment Method',
@@ -43,6 +43,7 @@ export const exportToCSV = (transactions, filename = 'expense_report') => {
     t.type,
     `"${(t.description || '').replace(/"/g, '""')}"`,
     t.amount,
+    t.currency || 'USD',
     t.category,
     t.payee,
     t.paymentMethod,
@@ -69,19 +70,23 @@ export const exportToCSV = (transactions, filename = 'expense_report') => {
 };
 
 // Export summary report to CSV
-export const exportSummaryToCSV = (stats, dateRange, filename = 'expense_summary') => {
+export const exportSummaryToCSV = (stats, dateRange, filename = 'expense_summary', reportCurrency = null) => {
+  const currencyCode = reportCurrency || stats.currency || 'USD';
+  const currencyNote = reportCurrency ? ` (converted to ${currencyCode})` : '';
+  
   const lines = [
     'Expense Manager Report',
     `Generated: ${new Date().toLocaleString()}`,
     `Period: ${formatDate(dateRange.start)} to ${formatDate(dateRange.end)}`,
+    reportCurrency ? `Currency: All amounts converted to ${currencyCode}` : '',
     '',
     'SUMMARY',
-    `Total Income,${formatCurrency(stats.totalIncome)}`,
-    `Total Expenses,${formatCurrency(stats.totalExpenses)}`,
-    `Balance,${formatCurrency(stats.balance)}`,
+    `Total Income,${formatCurrency(stats.totalIncome, currencyCode)}`,
+    `Total Expenses,${formatCurrency(stats.totalExpenses, currencyCode)}`,
+    `Balance,${formatCurrency(stats.balance, currencyCode)}`,
     `Total Transactions,${stats.transactionCount}`,
     '',
-    'EXPENSES BY CATEGORY',
+    'EXPENSES BY CATEGORY' + currencyNote,
     'Category,Amount,Percentage'
   ];
 
@@ -91,11 +96,11 @@ export const exportSummaryToCSV = (stats, dateRange, filename = 'expense_summary
     .sort((a, b) => b[1] - a[1])
     .forEach(([category, amount]) => {
       const percentage = categoryTotal > 0 ? ((amount / categoryTotal) * 100).toFixed(1) : 0;
-      lines.push(`${category},${formatCurrency(amount)},${percentage}%`);
+      lines.push(`${category},${formatCurrency(amount, currencyCode)},${percentage}%`);
     });
 
   lines.push('');
-  lines.push('EXPENSES BY PAYMENT METHOD');
+  lines.push('EXPENSES BY PAYMENT METHOD' + currencyNote);
   lines.push('Payment Method,Amount,Percentage');
 
   // Add payment method breakdown
@@ -104,7 +109,7 @@ export const exportSummaryToCSV = (stats, dateRange, filename = 'expense_summary
     .sort((a, b) => b[1] - a[1])
     .forEach(([method, amount]) => {
       const percentage = paymentTotal > 0 ? ((amount / paymentTotal) * 100).toFixed(1) : 0;
-      lines.push(`${method},${formatCurrency(amount)},${percentage}%`);
+      lines.push(`${method},${formatCurrency(amount, currencyCode)},${percentage}%`);
     });
 
   const csvContent = lines.join('\n');
@@ -120,7 +125,10 @@ export const exportSummaryToCSV = (stats, dateRange, filename = 'expense_summary
 };
 
 // Generate HTML report for PDF printing
-export const generatePDFReport = (stats, dateRange, transactions, includeInvoices = true) => {
+export const generatePDFReport = (stats, dateRange, transactions, includeInvoices = true, reportCurrency = null) => {
+  const currencyCode = reportCurrency || stats.currency || 'USD';
+  const currencyInfo = CURRENCIES[currencyCode] || CURRENCIES.USD;
+  
   const formatDateLocal = (dateString) => {
     return new Date(dateString + 'T12:00:00').toLocaleDateString('en-US', {
       year: 'numeric',
@@ -133,14 +141,14 @@ export const generatePDFReport = (stats, dateRange, transactions, includeInvoice
     .sort((a, b) => b[1] - a[1])
     .map(([category, amount]) => {
       const percentage = stats.totalExpenses > 0 ? ((amount / stats.totalExpenses) * 100).toFixed(1) : 0;
-      return `<tr><td>${category}</td><td style="text-align:right">${formatCurrency(amount)}</td><td style="text-align:right">${percentage}%</td></tr>`;
+      return `<tr><td>${category}</td><td style="text-align:right">${formatCurrency(amount, currencyCode)}</td><td style="text-align:right">${percentage}%</td></tr>`;
     }).join('');
 
   const paymentRows = Object.entries(stats.byPaymentMethod)
     .sort((a, b) => b[1] - a[1])
     .map(([method, amount]) => {
       const percentage = stats.totalExpenses > 0 ? ((amount / stats.totalExpenses) * 100).toFixed(1) : 0;
-      return `<tr><td>${method}</td><td style="text-align:right">${formatCurrency(amount)}</td><td style="text-align:right">${percentage}%</td></tr>`;
+      return `<tr><td>${method}</td><td style="text-align:right">${formatCurrency(amount, currencyCode)}</td><td style="text-align:right">${percentage}%</td></tr>`;
     }).join('');
 
   // Check if any transaction has invoices
@@ -149,12 +157,14 @@ export const generatePDFReport = (stats, dateRange, transactions, includeInvoice
 
   const transactionRows = transactions.slice(0, 50).map(t => {
     const hasImages = t.invoiceImages && t.invoiceImages.length > 0;
+    const txCurrency = t.currency || 'USD';
     return `
     <tr>
       <td>${t.date}</td>
       <td>${t.type}</td>
       <td>${t.description}${hasImages ? ' 📎' : ''}</td>
-      <td style="text-align:right;color:${t.type === 'expense' ? '#dc2626' : '#16a34a'}">${t.type === 'expense' ? '-' : '+'}${formatCurrency(t.amount)}</td>
+      <td style="text-align:right;color:${t.type === 'expense' ? '#dc2626' : '#16a34a'}">${t.type === 'expense' ? '-' : '+'}${formatCurrency(t.amount, txCurrency)}</td>
+      <td>${txCurrency}</td>
       <td>${t.category}</td>
       <td>${t.paymentMethod}</td>
     </tr>
@@ -166,7 +176,9 @@ export const generatePDFReport = (stats, dateRange, transactions, includeInvoice
     <h2>🧾 Attached Invoices & Receipts</h2>
     <p style="color:#6B7280;margin-bottom:20px;">${transactionsWithInvoices.length} transaction(s) with attached invoices</p>
     
-    ${transactionsWithInvoices.map(t => `
+    ${transactionsWithInvoices.map(t => {
+      const txCurrency = t.currency || 'USD';
+      return `
       <div class="invoice-group">
         <div class="invoice-header">
           <div>
@@ -174,13 +186,14 @@ export const generatePDFReport = (stats, dateRange, transactions, includeInvoice
             <span style="color:#6B7280;margin-left:10px;">${t.date}</span>
           </div>
           <div style="color:${t.type === 'expense' ? '#dc2626' : '#16a34a'};font-weight:bold;">
-            ${t.type === 'expense' ? '-' : '+'}${formatCurrency(t.amount)}
+            ${t.type === 'expense' ? '-' : '+'}${formatCurrency(t.amount, txCurrency)}
           </div>
         </div>
         <div class="invoice-details">
           <span>📁 ${t.category}</span>
           <span>👤 ${t.payee}</span>
           <span>💳 ${t.paymentMethod}</span>
+          <span>💱 ${txCurrency}</span>
         </div>
         <div class="invoice-images">
           ${t.invoiceImages.map((img, idx) => `
@@ -191,7 +204,7 @@ export const generatePDFReport = (stats, dateRange, transactions, includeInvoice
           `).join('')}
         </div>
       </div>
-    `).join('')}
+    `}).join('')}
   ` : '';
 
   const html = `
@@ -279,21 +292,22 @@ export const generatePDFReport = (stats, dateRange, transactions, includeInvoice
       <h1>💰 Expense Report</h1>
       <p class="meta">
         Period: ${formatDateLocal(dateRange.start)} to ${formatDateLocal(dateRange.end)}<br>
-        Generated: ${new Date().toLocaleString()}
+        Generated: ${new Date().toLocaleString()}<br>
+        ${reportCurrency ? `<span style="color:#4F46E5">💱 Totals converted to ${currencyInfo.flag} ${currencyCode} (${currencyInfo.name})</span>` : ''}
       </p>
 
       <div class="summary-grid">
         <div class="summary-card income">
           <h3>Total Income</h3>
-          <p>${formatCurrency(stats.totalIncome)}</p>
+          <p>${formatCurrency(stats.totalIncome, currencyCode)}</p>
         </div>
         <div class="summary-card expense">
           <h3>Total Expenses</h3>
-          <p>${formatCurrency(stats.totalExpenses)}</p>
+          <p>${formatCurrency(stats.totalExpenses, currencyCode)}</p>
         </div>
         <div class="summary-card balance">
           <h3>Balance</h3>
-          <p>${formatCurrency(stats.balance)}</p>
+          <p>${formatCurrency(stats.balance, currencyCode)}</p>
         </div>
       </div>
 
@@ -321,10 +335,10 @@ export const generatePDFReport = (stats, dateRange, transactions, includeInvoice
       <p style="color:#6B7280;margin-bottom:15px;font-size:14px;">📎 indicates transactions with attached invoices</p>
       <table>
         <thead>
-          <tr><th>Date</th><th>Type</th><th>Description</th><th style="text-align:right">Amount</th><th>Category</th><th>Payment</th></tr>
+          <tr><th>Date</th><th>Type</th><th>Description</th><th style="text-align:right">Amount</th><th>Currency</th><th>Category</th><th>Payment</th></tr>
         </thead>
         <tbody>
-          ${transactionRows || '<tr><td colspan="6" style="text-align:center;color:#9CA3AF">No transactions</td></tr>'}
+          ${transactionRows || '<tr><td colspan="7" style="text-align:center;color:#9CA3AF">No transactions</td></tr>'}
         </tbody>
       </table>
 

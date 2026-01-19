@@ -67,6 +67,7 @@ const TransactionForm = ({
       setFormData({
         ...initialData,
         date: initialData.date || getTodayForInput(),
+        currency: initialData.currency || defaultCurrency,
         invoiceImages: initialData.invoiceImages || [],
         // Handle both old and new reminder format
         reminderType: initialData.reminderType || REMINDER_TYPES.CUSTOM_DURATION,
@@ -75,7 +76,7 @@ const TransactionForm = ({
         reminderDate: initialData.reminderDate || ''
       });
     }
-  }, [initialData]);
+  }, [initialData, defaultCurrency]);
 
   useEffect(() => {
     setFormData(prev => ({ ...prev, type }));
@@ -192,12 +193,38 @@ const TransactionForm = ({
         </button>
       </div>
 
-      {/* Amount */}
+      {/* Amount and Currency */}
       <div>
         <label className={labelClasses}>Amount *</label>
-        <div className="relative flex gap-2">
+        <div className="flex gap-2">
+          {/* Currency Selector */}
+          <div className="relative flex-shrink-0">
+            <select
+              name="currency"
+              value={formData.currency}
+              onChange={handleChange}
+              className={`${inputClasses} w-28 pr-8 appearance-none cursor-pointer text-sm`}
+              title="Select currency"
+            >
+              {Object.values(currencies).sort((a, b) => a.name.localeCompare(b.name)).map(curr => (
+                <option key={curr.code} value={curr.code}>
+                  {curr.flag} {curr.code}
+                </option>
+              ))}
+            </select>
+            <div className={`absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
+          
+          {/* Amount Input */}
           <div className="relative flex-1">
-            <span className={`absolute left-4 top-1/2 -translate-y-1/2 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>$</span>
+            {/* Currency symbol with dynamic width */}
+            <span className={`absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+              {currencies[formData.currency]?.symbol || '$'}
+            </span>
             <input
               type="number"
               name="amount"
@@ -206,9 +233,14 @@ const TransactionForm = ({
               placeholder="0.00"
               step="0.01"
               min="0"
-              className={`${inputClasses} pl-8`}
+              className={`${inputClasses}`}
+              style={{ 
+                paddingLeft: `${Math.max(2.5, 1 + (currencies[formData.currency]?.symbol?.length || 1) * 0.6)}rem` 
+              }}
             />
           </div>
+          
+          {/* Calculator Button */}
           <button
             type="button"
             onClick={() => setShowCalculator(true)}
@@ -225,6 +257,13 @@ const TransactionForm = ({
           </button>
         </div>
         {errors.amount && <p className={errorClasses}>{errors.amount}</p>}
+        
+        {/* Currency info hint */}
+        {formData.currency !== defaultCurrency && (
+          <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+            💡 Recording in {currencies[formData.currency]?.name}. Default currency is {currencies[defaultCurrency]?.name}.
+          </p>
+        )}
       </div>
 
       {/* Calculator Modal */}

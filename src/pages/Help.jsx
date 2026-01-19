@@ -21,6 +21,14 @@ const Help = () => {
       a: 'Tap the "+" button in the bottom navigation, fill in the details (amount, description, category, etc.), and tap "Add Transaction".'
     },
     {
+      q: 'How do I use multiple currencies?',
+      a: 'When adding a transaction, select the currency from the dropdown. Go to Settings → Currency Settings to set your home currency and current travel currency. Reports can convert all currencies to your home currency.'
+    },
+    {
+      q: 'How do I update exchange rates?',
+      a: 'Go to Settings → Currency Settings → Exchange Rates. Tap "Fetch Live Rates" for internet rates, or "Edit" to manually enter rates. Rates are used for converting reports to your home currency.'
+    },
+    {
       q: 'How do I set up reminders?',
       a: 'When adding a transaction, set the status to "InFuture" or "Pending". Then choose a reminder option: before due date or specific date.'
     },
