@@ -15,14 +15,50 @@ import {
   DURATION_UNITS
 } from '../utils/reminders';
 import { useSettings } from '../context/SettingsContext';
+import { useExpense } from '../context/ExpenseContext';
 import Modal, { ConfirmModal } from '../components/Modal';
+import { getUsedCurrencies } from '../utils/currency';
 
 const Settings = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
-  const { theme, setTheme, hideAmounts, toggleAmounts, isDark } = useSettings();
+  const { 
+    theme, setTheme, hideAmounts, toggleAmounts, isDark,
+    defaultCurrency, setDefaultCurrency,
+    nativeCurrency, setNativeCurrency,
+    reportCurrency, setReportCurrency,
+    exchangeRates, exchangeRatesMeta, isLoadingRates,
+    updateExchangeRate, fetchLiveRates, resetRatesToDefaults,
+    currencies, getAllCurrencies, getCurrencyInfo
+  } = useSettings();
+  const { transactions, updateTransaction } = useExpense();
   
   const [stats, setStats] = useState(null);
+  const [showExchangeRatesModal, setShowExchangeRatesModal] = useState(false);
+  const [showHomeCurrencyPicker, setShowHomeCurrencyPicker] = useState(false);
+  const [showCurrentCurrencyPicker, setShowCurrentCurrencyPicker] = useState(false);
+  const [homeCurrencySearch, setHomeCurrencySearch] = useState('');
+  const [currentCurrencySearch, setCurrentCurrencySearch] = useState('');
+  const [currencySearch, setCurrencySearch] = useState('');
+  const [editingRate, setEditingRate] = useState({ code: '', rate: '' });
+  const [rateUpdateResult, setRateUpdateResult] = useState(null);
+  const homeCurrencyRef = useRef(null);
+  const currentCurrencyRef = useRef(null);
+  
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (homeCurrencyRef.current && !homeCurrencyRef.current.contains(event.target)) {
+        setShowHomeCurrencyPicker(false);
+      }
+      if (currentCurrencyRef.current && !currentCurrencyRef.current.contains(event.target)) {
+        setShowCurrentCurrencyPicker(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
   const [exportResult, setExportResult] = useState(null);
   const [importFile, setImportFile] = useState(null);
   const [importPreview, setImportPreview] = useState(null);
@@ -193,6 +229,281 @@ const Settings = () => {
             }`} />
           </button>
         </div>
+      </div>
+
+      {/* Currency Settings */}
+      <div className={`rounded-2xl p-4 mb-4 shadow-sm ${isDark ? 'bg-slate-800' : 'bg-white'}`}>
+        <h2 className={`font-semibold mb-3 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <span className="text-xl">💱</span>
+          Currency Settings
+        </h2>
+        
+        {/* Native/Home Currency */}
+        <div className={`p-3 rounded-xl mb-3 ${isDark ? 'bg-slate-700' : 'bg-gray-50'}`}>
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <p className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>🏠 Home Currency</p>
+              <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+                Your native currency for reports
+              </p>
+            </div>
+            <div className="relative" ref={homeCurrencyRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowHomeCurrencyPicker(!showHomeCurrencyPicker);
+                  setShowCurrentCurrencyPicker(false);
+                  setHomeCurrencySearch('');
+                }}
+                className={`flex items-center gap-2 pl-3 pr-8 py-2 rounded-lg font-medium cursor-pointer ${
+                  isDark 
+                    ? 'bg-slate-600 text-white border-slate-500' 
+                    : 'bg-white border border-gray-200 text-gray-900'
+                }`}
+              >
+                <span className="text-lg">{currencies[nativeCurrency]?.flag}</span>
+                <span>{nativeCurrency}</span>
+              </button>
+              <svg className={`absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none ${isDark ? 'text-slate-400' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+              
+              {/* Dropdown */}
+              {showHomeCurrencyPicker && (
+                <div className={`absolute right-0 top-full mt-1 w-64 rounded-xl shadow-lg z-50 overflow-hidden ${
+                  isDark ? 'bg-slate-700 border border-slate-600' : 'bg-white border border-gray-200'
+                }`}>
+                  <div className="p-2">
+                    <input
+                      type="text"
+                      placeholder="Search currency..."
+                      value={homeCurrencySearch}
+                      onChange={(e) => setHomeCurrencySearch(e.target.value)}
+                      className={`w-full px-3 py-2 rounded-lg text-sm ${
+                        isDark 
+                          ? 'bg-slate-600 text-white placeholder-slate-400 border-slate-500' 
+                          : 'bg-gray-50 border border-gray-200'
+                      }`}
+                      autoFocus
+                    />
+                  </div>
+                  <div className="max-h-48 overflow-y-auto">
+                    {Object.values(currencies)
+                      .filter(c => 
+                        c.name.toLowerCase().includes(homeCurrencySearch.toLowerCase()) ||
+                        c.code.toLowerCase().includes(homeCurrencySearch.toLowerCase())
+                      )
+                      .sort((a, b) => a.name.localeCompare(b.name))
+                      .map(curr => (
+                        <button
+                          key={curr.code}
+                          type="button"
+                          onClick={() => {
+                            setNativeCurrency(curr.code);
+                            setShowHomeCurrencyPicker(false);
+                            setHomeCurrencySearch('');
+                          }}
+                          className={`w-full flex items-center gap-3 px-3 py-2 text-left text-sm transition-colors ${
+                            curr.code === nativeCurrency
+                              ? isDark ? 'bg-primary-600 text-white' : 'bg-primary-50 text-primary-700'
+                              : isDark ? 'hover:bg-slate-600 text-white' : 'hover:bg-gray-50 text-gray-700'
+                          }`}
+                        >
+                          <span className="text-lg">{curr.flag}</span>
+                          <span className="font-medium">{curr.code}</span>
+                          <span className={`text-xs ${isDark ? 'text-slate-300' : 'text-gray-500'}`}>{curr.name}</span>
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Default Currency for New Transactions */}
+        <div className={`p-3 rounded-xl mb-3 ${isDark ? 'bg-slate-700' : 'bg-gray-50'}`}>
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <p className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>✈️ Current Currency</p>
+              <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+                Default for new transactions (travel mode)
+              </p>
+            </div>
+            <div className="relative" ref={currentCurrencyRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCurrentCurrencyPicker(!showCurrentCurrencyPicker);
+                  setShowHomeCurrencyPicker(false);
+                  setCurrentCurrencySearch('');
+                }}
+                className={`flex items-center gap-2 pl-3 pr-8 py-2 rounded-lg font-medium cursor-pointer ${
+                  isDark 
+                    ? 'bg-slate-600 text-white border-slate-500' 
+                    : 'bg-white border border-gray-200 text-gray-900'
+                }`}
+              >
+                <span className="text-lg">{currencies[defaultCurrency]?.flag}</span>
+                <span>{defaultCurrency}</span>
+              </button>
+              <svg className={`absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none ${isDark ? 'text-slate-400' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+              
+              {/* Dropdown */}
+              {showCurrentCurrencyPicker && (
+                <div className={`absolute right-0 top-full mt-1 w-64 rounded-xl shadow-lg z-50 overflow-hidden ${
+                  isDark ? 'bg-slate-700 border border-slate-600' : 'bg-white border border-gray-200'
+                }`}>
+                  <div className="p-2">
+                    <input
+                      type="text"
+                      placeholder="Search currency..."
+                      value={currentCurrencySearch}
+                      onChange={(e) => setCurrentCurrencySearch(e.target.value)}
+                      className={`w-full px-3 py-2 rounded-lg text-sm ${
+                        isDark 
+                          ? 'bg-slate-600 text-white placeholder-slate-400 border-slate-500' 
+                          : 'bg-gray-50 border border-gray-200'
+                      }`}
+                      autoFocus
+                    />
+                  </div>
+                  <div className="max-h-48 overflow-y-auto">
+                    {Object.values(currencies)
+                      .filter(c => 
+                        c.name.toLowerCase().includes(currentCurrencySearch.toLowerCase()) ||
+                        c.code.toLowerCase().includes(currentCurrencySearch.toLowerCase())
+                      )
+                      .sort((a, b) => a.name.localeCompare(b.name))
+                      .map(curr => (
+                        <button
+                          key={curr.code}
+                          type="button"
+                          onClick={() => {
+                            setDefaultCurrency(curr.code);
+                            setShowCurrentCurrencyPicker(false);
+                            setCurrentCurrencySearch('');
+                          }}
+                          className={`w-full flex items-center gap-3 px-3 py-2 text-left text-sm transition-colors ${
+                            curr.code === defaultCurrency
+                              ? isDark ? 'bg-primary-600 text-white' : 'bg-primary-50 text-primary-700'
+                              : isDark ? 'hover:bg-slate-600 text-white' : 'hover:bg-gray-50 text-gray-700'
+                          }`}
+                        >
+                          <span className="text-lg">{curr.flag}</span>
+                          <span className="font-medium">{curr.code}</span>
+                          <span className={`text-xs ${isDark ? 'text-slate-300' : 'text-gray-500'}`}>{curr.name}</span>
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+          {defaultCurrency !== nativeCurrency && (
+            <p className={`text-xs mt-2 ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+              ✨ Traveling? New transactions will use {currencies[defaultCurrency]?.name}
+            </p>
+          )}
+        </div>
+
+        {/* Exchange Rates */}
+        <div className={`p-3 rounded-xl ${isDark ? 'bg-slate-700' : 'bg-gray-50'}`}>
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <p className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>📊 Exchange Rates</p>
+              <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+                {exchangeRatesMeta?.lastUpdated 
+                  ? `Last updated: ${new Date(exchangeRatesMeta.lastUpdated).toLocaleDateString()}`
+                  : 'Using default rates'
+                }
+                {exchangeRatesMeta?.source && ` (${exchangeRatesMeta.source})`}
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex gap-2 mt-3">
+            <button
+              onClick={async () => {
+                const result = await fetchLiveRates();
+                setRateUpdateResult(result);
+                setTimeout(() => setRateUpdateResult(null), 3000);
+              }}
+              disabled={isLoadingRates}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg font-medium transition-colors ${
+                isDark 
+                  ? 'bg-blue-600 hover:bg-blue-500 text-white' 
+                  : 'bg-blue-500 hover:bg-blue-600 text-white'
+              } disabled:opacity-50`}
+            >
+              {isLoadingRates ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  Fetching...
+                </>
+              ) : (
+                <>
+                  🌐 Fetch Live Rates
+                </>
+              )}
+            </button>
+            <button
+              onClick={() => setShowExchangeRatesModal(true)}
+              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg font-medium transition-colors ${
+                isDark 
+                  ? 'bg-slate-600 hover:bg-slate-500 text-white' 
+                  : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+              }`}
+            >
+              ✏️ Edit
+            </button>
+          </div>
+
+          {rateUpdateResult && (
+            <div className={`mt-3 p-2 rounded-lg text-sm ${
+              rateUpdateResult.success 
+                ? isDark ? 'bg-green-900/30 text-green-400' : 'bg-green-50 text-green-700'
+                : isDark ? 'bg-red-900/30 text-red-400' : 'bg-red-50 text-red-700'
+            }`}>
+              {rateUpdateResult.success 
+                ? `✅ Rates updated from ${rateUpdateResult.source || 'API'}`
+                : `❌ Failed: ${rateUpdateResult.error}. Using cached rates.`
+              }
+            </div>
+          )}
+        </div>
+
+        {/* Currencies Used Summary */}
+        {transactions.length > 0 && (
+          <div className={`mt-3 p-3 rounded-xl ${isDark ? 'bg-slate-700' : 'bg-gray-50'}`}>
+            <p className={`font-medium mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+              💰 Currencies in Use
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {getUsedCurrencies(transactions).map(code => (
+                <span 
+                  key={code}
+                  className={`px-2 py-1 rounded-lg text-sm ${
+                    isDark ? 'bg-slate-600 text-slate-200' : 'bg-white border border-gray-200 text-gray-700'
+                  }`}
+                >
+                  {currencies[code]?.flag} {code}
+                </span>
+              ))}
+              {getUsedCurrencies(transactions).length === 0 && (
+                <span className={`text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+                  No transactions yet
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        <p className={`text-xs mt-3 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+          💡 Tip: When traveling to a new country, change the "Current Currency" to record expenses in local currency.
+        </p>
       </div>
 
       {/* Current Data Stats */}
@@ -536,7 +847,7 @@ const Settings = () => {
           <div>
             <h3 className="font-semibold mb-1">Daily Expense Manager</h3>
             <p className="text-sm opacity-90">
-              Version 1.0.0<br />
+              Version 1.1.0 - Multi-Currency Support<br />
               Your data is stored locally on this device.
               Regular backups are recommended.
             </p>
@@ -676,6 +987,154 @@ const Settings = () => {
         title="Clear All Data"
         message="Are you sure you want to delete all transactions, tags, and settings? This action cannot be undone. Make sure you have a backup!"
       />
+
+
+
+      {/* Exchange Rates Modal */}
+      <Modal
+        isOpen={showExchangeRatesModal}
+        onClose={() => {
+          setShowExchangeRatesModal(false);
+          setEditingRate({ code: '', rate: '' });
+          setCurrencySearch('');
+        }}
+        title="Manage Exchange Rates"
+      >
+        <div className="space-y-4">
+          <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+            Exchange rates are relative to USD (1 USD = X currency).
+            {exchangeRatesMeta?.lastUpdated && (
+              <> Last updated: {new Date(exchangeRatesMeta.lastUpdated).toLocaleString()}</>
+            )}
+          </p>
+
+          {/* Actions */}
+          <div className="flex gap-2">
+            <button
+              onClick={async () => {
+                const result = await fetchLiveRates();
+                if (result.success) {
+                  setRateUpdateResult(result);
+                }
+              }}
+              disabled={isLoadingRates}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg font-medium transition-colors text-sm ${
+                isDark 
+                  ? 'bg-blue-600 hover:bg-blue-500 text-white' 
+                  : 'bg-blue-500 hover:bg-blue-600 text-white'
+              } disabled:opacity-50`}
+            >
+              {isLoadingRates ? 'Fetching...' : '🌐 Fetch Live'}
+            </button>
+            <button
+              onClick={() => {
+                resetRatesToDefaults();
+                setRateUpdateResult({ success: true, message: 'Reset to defaults' });
+              }}
+              className={`flex-1 py-2 px-3 rounded-lg font-medium transition-colors text-sm ${
+                isDark 
+                  ? 'bg-slate-600 hover:bg-slate-500 text-white' 
+                  : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+              }`}
+            >
+              🔄 Reset Defaults
+            </button>
+          </div>
+          
+          {/* Search */}
+          <input
+            type="text"
+            placeholder="Search currencies..."
+            value={currencySearch}
+            onChange={(e) => setCurrencySearch(e.target.value)}
+            className={`w-full px-4 py-2 rounded-xl border focus:border-primary-500 focus:ring-2 focus:ring-primary-200 ${
+              isDark 
+                ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' 
+                : 'bg-white border-gray-200'
+            }`}
+          />
+          
+          {/* Rates List */}
+          <div className="max-h-64 overflow-y-auto space-y-1">
+            {Object.values(currencies)
+              .filter(c => 
+                c.name.toLowerCase().includes(currencySearch.toLowerCase()) ||
+                c.code.toLowerCase().includes(currencySearch.toLowerCase())
+              )
+              .sort((a, b) => a.name.localeCompare(b.name))
+              .map(currency => {
+                const rate = exchangeRates[currency.code] || 1;
+                const isEditing = editingRate.code === currency.code;
+                
+                return (
+                  <div 
+                    key={currency.code}
+                    className={`flex items-center gap-2 p-2 rounded-xl ${
+                      isDark ? 'bg-slate-700' : 'bg-gray-50'
+                    }`}
+                  >
+                    <span className="text-lg">{currency.flag}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className={`font-medium text-sm truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                        {currency.code}
+                      </p>
+                    </div>
+                    
+                    {isEditing ? (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          value={editingRate.rate}
+                          onChange={(e) => setEditingRate({ ...editingRate, rate: e.target.value })}
+                          step="0.0001"
+                          min="0"
+                          className={`w-24 px-2 py-1 rounded-lg border text-sm text-right ${
+                            isDark 
+                              ? 'bg-slate-600 border-slate-500 text-white' 
+                              : 'bg-white border-gray-300'
+                          }`}
+                          autoFocus
+                        />
+                        <button
+                          onClick={() => {
+                            if (editingRate.rate && parseFloat(editingRate.rate) > 0) {
+                              updateExchangeRate(currency.code, editingRate.rate);
+                            }
+                            setEditingRate({ code: '', rate: '' });
+                          }}
+                          className="p-1 text-green-500 hover:bg-green-50 rounded"
+                        >
+                          ✓
+                        </button>
+                        <button
+                          onClick={() => setEditingRate({ code: '', rate: '' })}
+                          className="p-1 text-red-500 hover:bg-red-50 rounded"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setEditingRate({ code: currency.code, rate: rate.toString() })}
+                        className={`text-sm font-mono px-2 py-1 rounded-lg ${
+                          isDark 
+                            ? 'bg-slate-600 hover:bg-slate-500 text-slate-200' 
+                            : 'bg-white hover:bg-gray-100 text-gray-700 border border-gray-200'
+                        }`}
+                      >
+                        {rate.toFixed(4)}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+          </div>
+          
+          <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+            💡 Click on a rate to edit it manually. These rates are used to convert transactions to your home currency in reports.
+          </p>
+        </div>
+      </Modal>
     </div>
   );
 };

@@ -41,6 +41,16 @@ export const CURRENCIES = {
   NGN: { code: 'NGN', symbol: '₦', name: 'Nigerian Naira', flag: '🇳🇬' },
   EGP: { code: 'EGP', symbol: 'E£', name: 'Egyptian Pound', flag: '🇪🇬' },
   KES: { code: 'KES', symbol: 'KSh', name: 'Kenyan Shilling', flag: '🇰🇪' },
+  NPR: { code: 'NPR', symbol: '₨', name: 'Nepalese Rupee', flag: '🇳🇵' },
+  LKR: { code: 'LKR', symbol: 'Rs', name: 'Sri Lankan Rupee', flag: '🇱🇰' },
+  TWD: { code: 'TWD', symbol: 'NT$', name: 'Taiwan Dollar', flag: '🇹🇼' },
+  DKK: { code: 'DKK', symbol: 'kr', name: 'Danish Krone', flag: '🇩🇰' },
+  RON: { code: 'RON', symbol: 'lei', name: 'Romanian Leu', flag: '🇷🇴' },
+  COP: { code: 'COP', symbol: 'Col$', name: 'Colombian Peso', flag: '🇨🇴' },
+  ARS: { code: 'ARS', symbol: 'Arg$', name: 'Argentine Peso', flag: '🇦🇷' },
+  CLP: { code: 'CLP', symbol: 'CL$', name: 'Chilean Peso', flag: '🇨🇱' },
+  PEN: { code: 'PEN', symbol: 'S/', name: 'Peruvian Sol', flag: '🇵🇪' },
+  GEL: { code: 'GEL', symbol: '₾', name: 'Georgian Lari', flag: '🇬🇪' },
 };
 
 // Default exchange rates (relative to USD) - approximate values
@@ -82,20 +92,50 @@ export const DEFAULT_EXCHANGE_RATES = {
   NGN: 1550,
   EGP: 30.90,
   KES: 153,
+  NPR: 133.50,
+  LKR: 320,
+  TWD: 31.50,
+  DKK: 6.88,
+  RON: 4.58,
+  COP: 4000,
+  ARS: 875,
+  CLP: 880,
+  PEN: 3.75,
+  GEL: 2.70,
 };
+
+// List of free exchange rate API endpoints to try
+const EXCHANGE_RATE_APIS = [
+  {
+    name: 'exchangerate-api',
+    url: (base) => `https://api.exchangerate-api.com/v4/latest/${base}`,
+    parseRates: (data) => data.rates
+  },
+  {
+    name: 'frankfurter',
+    url: (base) => `https://api.frankfurter.app/latest?from=${base}`,
+    parseRates: (data) => ({ [data.base]: 1, ...data.rates })
+  }
+];
 
 // Get currency settings
 export const getCurrencySettings = () => {
   try {
     const settings = localStorage.getItem(CURRENCY_STORAGE_KEY);
     if (settings) {
-      return JSON.parse(settings);
+      const parsed = JSON.parse(settings);
+      // Ensure nativeCurrency is set (for backwards compatibility)
+      if (!parsed.nativeCurrency) {
+        parsed.nativeCurrency = parsed.defaultCurrency || 'USD';
+      }
+      return parsed;
     }
   } catch (e) {
     console.error('Failed to load currency settings:', e);
   }
   return {
     defaultCurrency: 'USD',
+    nativeCurrency: 'USD',
     reportCurrency: 'USD',
     lastUpdated: null
   };
@@ -206,53 +246,77 @@ export const getCurrencyList = () => {
 export const getUsedCurrencies = (transactions) => {
   const used = new Set();
   transactions.forEach(t => {
-    if (t.currency) {
-      used.add(t.currency);
-    }
+    // Default to USD if no currency specified (legacy transactions)
+    used.add(t.currency || 'USD');
   });
   return Array.from(used);
 };
 
-// Fetch exchange rates from API (free API)
+// Fetch exchange rates from API (tries multiple free APIs)
 export const fetchExchangeRates = async (baseCurrency = 'USD') => {
-  try {
-    // Using exchangerate-api.com free tier or similar
-    // Note: This may not work if internet is disabled
-    const response = await fetch(
-      `https://api.exchangerate-api.com/v4/latest/${baseCurrency}`,
-      { timeout: 5000 }
-    );
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch rates');
-    }
-    
-    const data = await response.json();
-    
-    // Filter to only our supported currencies
-    const rates = {};
-    Object.keys(CURRENCIES).forEach(code => {
-      if (data.rates[code]) {
-        rates[code] = data.rates[code];
+  let lastError = null;
+  
+  for (const api of EXCHANGE_RATE_APIS) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      
+      const response = await fetch(api.url(baseCurrency), {
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error(`${api.name}: HTTP ${response.status}`);
       }
-    });
-    
-    // Save the fetched rates
-    saveExchangeRates(rates, 'api');
-    
-    return {
-      success: true,
-      rates,
-      lastUpdated: new Date().toISOString()
-    };
-  } catch (error) {
-    console.error('Failed to fetch exchange rates:', error);
-    return {
-      success: false,
-      error: error.message,
-      rates: getExchangeRates()
-    };
+      
+      const data = await response.json();
+      const rawRates = api.parseRates(data);
+      
+      // Convert rates to USD base if needed
+      let rates = {};
+      if (baseCurrency !== 'USD') {
+        const usdRate = rawRates['USD'] || 1;
+        Object.keys(CURRENCIES).forEach(code => {
+          if (rawRates[code] !== undefined) {
+            rates[code] = rawRates[code] / usdRate;
+          }
+        });
+        rates['USD'] = 1;
+      } else {
+        Object.keys(CURRENCIES).forEach(code => {
+          if (rawRates[code] !== undefined) {
+            rates[code] = rawRates[code];
+          }
+        });
+      }
+      
+      // Merge with defaults for any missing currencies
+      rates = { ...DEFAULT_EXCHANGE_RATES, ...rates };
+      
+      // Save the fetched rates
+      saveExchangeRates(rates, 'api');
+      
+      return {
+        success: true,
+        rates,
+        source: api.name,
+        lastUpdated: new Date().toISOString()
+      };
+    } catch (error) {
+      console.warn(`${api.name} failed:`, error.message);
+      lastError = error;
+      continue;
+    }
   }
+  
+  console.error('All exchange rate APIs failed:', lastError?.message);
+  return {
+    success: false,
+    error: lastError?.message || 'All APIs failed',
+    rates: getExchangeRates()
+  };
 };
 
 // Calculate totals by currency
@@ -282,6 +346,147 @@ export const calculateTotalsByCurrency = (transactions, targetCurrency, rates = 
   };
 };
 
+// Calculate stats by category with currency conversion
+export const calculateStatsByCurrency = (transactions, targetCurrency, rates = null) => {
+  const exchangeRates = rates || getExchangeRates();
+  
+  const expenses = transactions.filter(t => t.type === 'expense');
+  const income = transactions.filter(t => t.type === 'income');
+  
+  let totalExpenses = 0;
+  let totalIncome = 0;
+  
+  expenses.forEach(t => {
+    const currency = t.currency || 'USD';
+    const amount = parseFloat(t.amount) || 0;
+    totalExpenses += convertCurrency(amount, currency, targetCurrency, exchangeRates);
+  });
+  
+  income.forEach(t => {
+    const currency = t.currency || 'USD';
+    const amount = parseFloat(t.amount) || 0;
+    totalIncome += convertCurrency(amount, currency, targetCurrency, exchangeRates);
+  });
+  
+  // By Category
+  const byCategory = {};
+  expenses.forEach(t => {
+    const currency = t.currency || 'USD';
+    const amount = parseFloat(t.amount) || 0;
+    const converted = convertCurrency(amount, currency, targetCurrency, exchangeRates);
+    byCategory[t.category] = (byCategory[t.category] || 0) + converted;
+  });
+  
+  // By Payment Method
+  const byPaymentMethod = {};
+  expenses.forEach(t => {
+    const currency = t.currency || 'USD';
+    const amount = parseFloat(t.amount) || 0;
+    const converted = convertCurrency(amount, currency, targetCurrency, exchangeRates);
+    byPaymentMethod[t.paymentMethod] = (byPaymentMethod[t.paymentMethod] || 0) + converted;
+  });
+  
+  // By Payee
+  const byPayee = {};
+  expenses.forEach(t => {
+    const currency = t.currency || 'USD';
+    const amount = parseFloat(t.amount) || 0;
+    const converted = convertCurrency(amount, currency, targetCurrency, exchangeRates);
+    byPayee[t.payee] = (byPayee[t.payee] || 0) + converted;
+  });
+  
+  // By Status
+  const byStatus = {};
+  transactions.forEach(t => {
+    byStatus[t.status] = (byStatus[t.status] || 0) + 1;
+  });
+  
+  // Monthly spending
+  const monthlySpending = {};
+  expenses.forEach(t => {
+    const currency = t.currency || 'USD';
+    const amount = parseFloat(t.amount) || 0;
+    const converted = convertCurrency(amount, currency, targetCurrency, exchangeRates);
+    const date = new Date(t.date + 'T12:00:00');
+    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    monthlySpending[monthKey] = (monthlySpending[monthKey] || 0) + converted;
+  });
+  
+  // Monthly income
+  const monthlyIncome = {};
+  income.forEach(t => {
+    const currency = t.currency || 'USD';
+    const amount = parseFloat(t.amount) || 0;
+    const converted = convertCurrency(amount, currency, targetCurrency, exchangeRates);
+    const date = new Date(t.date + 'T12:00:00');
+    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    monthlyIncome[monthKey] = (monthlyIncome[monthKey] || 0) + converted;
+  });
+  
+  // Yearly spending
+  const yearlySpending = {};
+  expenses.forEach(t => {
+    const currency = t.currency || 'USD';
+    const amount = parseFloat(t.amount) || 0;
+    const converted = convertCurrency(amount, currency, targetCurrency, exchangeRates);
+    const year = t.date.substring(0, 4);
+    yearlySpending[year] = (yearlySpending[year] || 0) + converted;
+  });
+  
+  // Yearly income
+  const yearlyIncome = {};
+  income.forEach(t => {
+    const currency = t.currency || 'USD';
+    const amount = parseFloat(t.amount) || 0;
+    const converted = convertCurrency(amount, currency, targetCurrency, exchangeRates);
+    const year = t.date.substring(0, 4);
+    yearlyIncome[year] = (yearlyIncome[year] || 0) + converted;
+  });
+  
+  return {
+    totalExpenses,
+    totalIncome,
+    balance: totalIncome - totalExpenses,
+    byCategory,
+    byPaymentMethod,
+    byPayee,
+    byStatus,
+    monthlySpending,
+    monthlyIncome,
+    yearlySpending,
+    yearlyIncome,
+    transactionCount: transactions.length,
+    expenseCount: expenses.length,
+    incomeCount: income.length,
+    currency: targetCurrency
+  };
+};
+
+// Get currencies used in transactions summary
+export const getCurrencySummary = (transactions) => {
+  const summary = {};
+  transactions.forEach(t => {
+    const currency = t.currency || 'USD';
+    if (!summary[currency]) {
+      summary[currency] = { count: 0, totalExpense: 0, totalIncome: 0 };
+    }
+    summary[currency].count++;
+    const amount = parseFloat(t.amount) || 0;
+    if (t.type === 'expense') {
+      summary[currency].totalExpense += amount;
+    } else {
+      summary[currency].totalIncome += amount;
+    }
+  });
+  return summary;
+};
+
+// Reset exchange rates to defaults
+export const resetExchangeRatesToDefaults = () => {
+  saveExchangeRates({ ...DEFAULT_EXCHANGE_RATES }, 'default');
+  return { ...DEFAULT_EXCHANGE_RATES };
+};
+
 export default {
   CURRENCIES,
   DEFAULT_EXCHANGE_RATES,
@@ -296,5 +501,8 @@ export default {
   getCurrencyList,
   getUsedCurrencies,
   fetchExchangeRates,
-  calculateTotalsByCurrency
+  calculateTotalsByCurrency,
+  calculateStatsByCurrency,
+  getCurrencySummary,
+  resetExchangeRatesToDefaults
 };

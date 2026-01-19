@@ -3,7 +3,11 @@
 import { STORAGE_KEYS } from './storage';
 
 // Current backup version - increment when backup format changes
-const BACKUP_VERSION = '1.0';
+const BACKUP_VERSION = '1.1';
+
+// Currency storage keys
+const CURRENCY_STORAGE_KEY = 'expense_manager_currency_settings';
+const EXCHANGE_RATES_KEY = 'expense_manager_exchange_rates';
 
 /**
  * Create a complete backup of all app data
@@ -16,6 +20,11 @@ export const createBackup = () => {
   const transactions = JSON.parse(localStorage.getItem(STORAGE_KEYS.TRANSACTIONS) || '[]');
   const tags = JSON.parse(localStorage.getItem(STORAGE_KEYS.TAGS) || '{}');
   const settings = JSON.parse(localStorage.getItem(STORAGE_KEYS.SETTINGS) || '{}');
+  const currencySettings = JSON.parse(localStorage.getItem(CURRENCY_STORAGE_KEY) || '{}');
+  const exchangeRates = JSON.parse(localStorage.getItem(EXCHANGE_RATES_KEY) || '{}');
+
+  // Get currencies used in transactions
+  const currenciesUsed = [...new Set(transactions.map(t => t.currency || 'USD'))];
 
   // Create backup object
   const backup = {
@@ -45,6 +54,7 @@ export const createBackup = () => {
         paymentMethods: tags.paymentMethods?.length || 0,
         statuses: tags.statuses?.length || 0
       },
+      currenciesUsed: currenciesUsed,
       dateRange: transactions.length > 0 ? {
         oldest: transactions.reduce((min, t) => t.date < min ? t.date : min, transactions[0]?.date),
         newest: transactions.reduce((max, t) => t.date > max ? t.date : max, transactions[0]?.date)
@@ -58,7 +68,11 @@ export const createBackup = () => {
     tags: tags,
 
     // Optional - Settings
-    settings: settings
+    settings: settings,
+
+    // Currency settings
+    currencySettings: currencySettings,
+    exchangeRates: exchangeRates
   };
 
   return backup;
@@ -174,7 +188,9 @@ export const importBackup = (data, options = {}) => {
       transactionsImported: 0,
       transactionsSkipped: 0,
       tagsImported: false,
-      settingsImported: false
+      settingsImported: false,
+      currencySettingsImported: false,
+      exchangeRatesImported: false
     };
 
     // Import transactions
@@ -227,6 +243,18 @@ export const importBackup = (data, options = {}) => {
     if (importSettings && data.settings) {
       localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(data.settings));
       results.settingsImported = true;
+    }
+
+    // Import currency settings
+    if (importSettings && data.currencySettings) {
+      localStorage.setItem(CURRENCY_STORAGE_KEY, JSON.stringify(data.currencySettings));
+      results.currencySettingsImported = true;
+    }
+
+    // Import exchange rates
+    if (importSettings && data.exchangeRates) {
+      localStorage.setItem(EXCHANGE_RATES_KEY, JSON.stringify(data.exchangeRates));
+      results.exchangeRatesImported = true;
     }
 
     return {
@@ -304,6 +332,8 @@ export const clearAllData = () => {
   localStorage.removeItem(STORAGE_KEYS.TRANSACTIONS);
   localStorage.removeItem(STORAGE_KEYS.TAGS);
   localStorage.removeItem(STORAGE_KEYS.SETTINGS);
+  localStorage.removeItem(CURRENCY_STORAGE_KEY);
+  localStorage.removeItem(EXCHANGE_RATES_KEY);
 };
 
 export default {

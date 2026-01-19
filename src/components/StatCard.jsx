@@ -1,7 +1,7 @@
 import React from 'react';
 import { useSettings } from '../context/SettingsContext';
 
-const StatCard = ({ title, amount, type = 'neutral', icon }) => {
+const StatCard = ({ title, amount, type = 'neutral', icon, currency = null, subtitle = null }) => {
   const { formatAmount, hideAmounts } = useSettings();
   
   const getColorClasses = () => {
@@ -20,12 +20,17 @@ const StatCard = ({ title, amount, type = 'neutral', icon }) => {
   return (
     <div className={`rounded-2xl p-4 ${getColorClasses()} shadow-lg`}>
       <div className="flex items-center justify-between mb-2">
-        <span className="text-sm opacity-90">{title}</span>
+        <div>
+          <span className="text-sm opacity-90">{title}</span>
+          {subtitle && (
+            <span className="text-xs opacity-75 ml-1">({subtitle})</span>
+          )}
+        </div>
         {icon && <span className="text-2xl">{icon}</span>}
       </div>
       <p className={`text-2xl font-bold ${hideAmounts ? 'blur-md select-none' : ''}`}>
         {type === 'expense' && amount > 0 && '-'}
-        {formatAmount(Math.abs(amount))}
+        {formatAmount(Math.abs(amount), currency)}
       </p>
     </div>
   );

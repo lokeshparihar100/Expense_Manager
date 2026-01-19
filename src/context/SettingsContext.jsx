@@ -1,13 +1,18 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import {
   getCurrencySettings,
   saveCurrencySettings,
   getExchangeRates,
   saveExchangeRates,
+  getExchangeRatesMeta,
   convertCurrency,
   formatCurrencyAmount,
   getCurrency,
-  CURRENCIES
+  getCurrencyList,
+  fetchExchangeRates,
+  resetExchangeRatesToDefaults,
+  CURRENCIES,
+  DEFAULT_EXCHANGE_RATES
 } from '../utils/currency';
 
 const SettingsContext = createContext();
@@ -60,6 +65,8 @@ export const SettingsProvider = ({ children }) => {
   const [effectiveTheme, setEffectiveTheme] = useState('light');
   const [currencySettings, setCurrencySettings] = useState(getCurrencySettings);
   const [exchangeRates, setExchangeRates] = useState(getExchangeRates);
+  const [exchangeRatesMeta, setExchangeRatesMeta] = useState(getExchangeRatesMeta);
+  const [isLoadingRates, setIsLoadingRates] = useState(false);
 
   // Determine effective theme based on settings and system preference
   useEffect(() => {
@@ -152,18 +159,31 @@ export const SettingsProvider = ({ children }) => {
     return convertCurrency(parseFloat(amount) || 0, fromCurrency, toCurrency, exchangeRates);
   };
 
-  // Update default currency
+  // Update default currency (current currency for new transactions)
   const setDefaultCurrency = (code) => {
-    const newSettings = { ...currencySettings, defaultCurrency: code };
-    setCurrencySettings(newSettings);
-    saveCurrencySettings(newSettings);
+    setCurrencySettings(prev => {
+      const newSettings = { ...prev, defaultCurrency: code };
+      saveCurrencySettings(newSettings);
+      return newSettings;
+    });
   };
 
   // Update report currency
   const setReportCurrency = (code) => {
-    const newSettings = { ...currencySettings, reportCurrency: code };
-    setCurrencySettings(newSettings);
-    saveCurrencySettings(newSettings);
+    setCurrencySettings(prev => {
+      const newSettings = { ...prev, reportCurrency: code };
+      saveCurrencySettings(newSettings);
+      return newSettings;
+    });
+  };
+
+  // Update native currency (home country currency for conversion)
+  const setNativeCurrency = (code) => {
+    setCurrencySettings(prev => {
+      const newSettings = { ...prev, nativeCurrency: code, reportCurrency: code };
+      saveCurrencySettings(newSettings);
+      return newSettings;
+    });
   };
 
   // Update exchange rate for a currency
@@ -171,6 +191,7 @@ export const SettingsProvider = ({ children }) => {
     const newRates = { ...exchangeRates, [code]: parseFloat(rate) };
     setExchangeRates(newRates);
     saveExchangeRates(newRates, 'manual');
+    setExchangeRatesMeta({ lastUpdated: new Date().toISOString(), source: 'manual' });
   };
 
   // Update multiple exchange rates
@@ -178,11 +199,42 @@ export const SettingsProvider = ({ children }) => {
     const newRates = { ...exchangeRates, ...rates };
     setExchangeRates(newRates);
     saveExchangeRates(newRates, 'manual');
+    setExchangeRatesMeta({ lastUpdated: new Date().toISOString(), source: 'manual' });
+  };
+
+  // Fetch live exchange rates from internet
+  const fetchLiveRates = useCallback(async () => {
+    setIsLoadingRates(true);
+    try {
+      const result = await fetchExchangeRates('USD');
+      if (result.success) {
+        setExchangeRates(result.rates);
+        setExchangeRatesMeta({ 
+          lastUpdated: result.lastUpdated, 
+          source: result.source || 'api' 
+        });
+      }
+      return result;
+    } finally {
+      setIsLoadingRates(false);
+    }
+  }, []);
+
+  // Reset exchange rates to defaults
+  const resetRatesToDefaults = () => {
+    const defaultRates = resetExchangeRatesToDefaults();
+    setExchangeRates(defaultRates);
+    setExchangeRatesMeta({ lastUpdated: new Date().toISOString(), source: 'default' });
   };
 
   // Get currency info
   const getCurrencyInfo = (code) => {
     return getCurrency(code);
+  };
+
+  // Get list of all currencies
+  const getAllCurrencies = () => {
+    return getCurrencyList();
   };
 
   const value = {
@@ -199,13 +251,20 @@ export const SettingsProvider = ({ children }) => {
     
     // Currency
     defaultCurrency: currencySettings.defaultCurrency || 'USD',
-    reportCurrency: currencySettings.reportCurrency || currencySettings.defaultCurrency || 'USD',
+    reportCurrency: currencySettings.reportCurrency || currencySettings.nativeCurrency || 'USD',
+    nativeCurrency: currencySettings.nativeCurrency || 'USD',
     exchangeRates,
+    exchangeRatesMeta,
+    isLoadingRates,
     setDefaultCurrency,
     setReportCurrency,
+    setNativeCurrency,
     updateExchangeRate,
     updateExchangeRates,
+    fetchLiveRates,
+    resetRatesToDefaults,
     getCurrencyInfo,
+    getAllCurrencies,
     
     // Formatting
     formatAmount,
@@ -213,7 +272,8 @@ export const SettingsProvider = ({ children }) => {
     convert,
     
     // All currencies
-    currencies: CURRENCIES
+    currencies: CURRENCIES,
+    defaultRates: DEFAULT_EXCHANGE_RATES
   };
 
   return (

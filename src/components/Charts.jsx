@@ -15,14 +15,14 @@ const CHART_COLORS = [
 ];
 
 // Pie Chart Component
-export const PieChart = ({ data, size = 200, showLegend = true }) => {
+export const PieChart = ({ data, size = 200, showLegend = true, isDark = false }) => {
   const total = data.reduce((sum, item) => sum + item.value, 0);
   
   if (total === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-8">
         <div className="text-4xl mb-2">📊</div>
-        <p className="text-gray-500 text-sm">No data available</p>
+        <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>No data available</p>
       </div>
     );
   }
@@ -68,7 +68,7 @@ export const PieChart = ({ data, size = 200, showLegend = true }) => {
             key={index}
             d={slice.path}
             fill={slice.color}
-            stroke="white"
+            stroke={isDark ? '#1e293b' : 'white'}
             strokeWidth="2"
             className="transition-all duration-300 hover:opacity-80"
           />
@@ -83,8 +83,8 @@ export const PieChart = ({ data, size = 200, showLegend = true }) => {
                 className="w-3 h-3 rounded-full flex-shrink-0"
                 style={{ backgroundColor: slice.color }}
               />
-              <span className="text-gray-600 truncate">{slice.label}</span>
-              <span className="text-gray-400 ml-auto">{slice.percentage}%</span>
+              <span className={`truncate ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>{slice.label}</span>
+              <span className={`ml-auto ${isDark ? 'text-slate-400' : 'text-gray-400'}`}>{slice.percentage}%</span>
             </div>
           ))}
         </div>
@@ -94,17 +94,22 @@ export const PieChart = ({ data, size = 200, showLegend = true }) => {
 };
 
 // Bar Chart Component
-export const BarChart = ({ data, height = 200, showValues = true }) => {
+export const BarChart = ({ data, height = 200, showValues = true, isDark = false, formatValue = null }) => {
   const maxValue = Math.max(...data.map(item => item.value), 1);
   
   if (data.length === 0 || maxValue === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-8">
         <div className="text-4xl mb-2">📊</div>
-        <p className="text-gray-500 text-sm">No data available</p>
+        <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>No data available</p>
       </div>
     );
   }
+
+  const displayValue = (val) => {
+    if (formatValue) return formatValue(val);
+    return val.toFixed(0);
+  };
 
   return (
     <div className="w-full">
@@ -117,8 +122,8 @@ export const BarChart = ({ data, height = 200, showValues = true }) => {
               className="flex-1 flex flex-col items-center justify-end"
             >
               {showValues && item.value > 0 && (
-                <span className="text-xs text-gray-500 mb-1">
-                  ${item.value.toFixed(0)}
+                <span className={`text-xs mb-1 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+                  {displayValue(item.value)}
                 </span>
               )}
               <div
@@ -133,10 +138,10 @@ export const BarChart = ({ data, height = 200, showValues = true }) => {
           );
         })}
       </div>
-      <div className="flex justify-between gap-1 mt-2 border-t border-gray-200 pt-2">
+      <div className={`flex justify-between gap-1 mt-2 border-t pt-2 ${isDark ? 'border-slate-600' : 'border-gray-200'}`}>
         {data.map((item, index) => (
           <div key={index} className="flex-1 text-center">
-            <span className="text-xs text-gray-500 truncate block">{item.label}</span>
+            <span className={`text-xs truncate block ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>{item.label}</span>
           </div>
         ))}
       </div>
@@ -145,17 +150,22 @@ export const BarChart = ({ data, height = 200, showValues = true }) => {
 };
 
 // Horizontal Bar Chart Component
-export const HorizontalBarChart = ({ data, showValues = true }) => {
+export const HorizontalBarChart = ({ data, showValues = true, isDark = false, formatValue = null }) => {
   const maxValue = Math.max(...data.map(item => item.value), 1);
   
   if (data.length === 0 || maxValue === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-8">
         <div className="text-4xl mb-2">📊</div>
-        <p className="text-gray-500 text-sm">No data available</p>
+        <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>No data available</p>
       </div>
     );
   }
+
+  const displayValue = (val) => {
+    if (formatValue) return formatValue(val);
+    return val.toFixed(2);
+  };
 
   return (
     <div className="space-y-3">
@@ -164,14 +174,14 @@ export const HorizontalBarChart = ({ data, showValues = true }) => {
         return (
           <div key={index}>
             <div className="flex items-center justify-between mb-1">
-              <span className="text-sm text-gray-700 truncate flex-1">{item.label}</span>
+              <span className={`text-sm truncate flex-1 ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>{item.label}</span>
               {showValues && (
-                <span className="text-sm font-medium text-gray-900 ml-2">
-                  ${item.value.toFixed(2)}
+                <span className={`text-sm font-medium ml-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                  {displayValue(item.value)}
                 </span>
               )}
             </div>
-            <div className="h-4 bg-gray-100 rounded-full overflow-hidden">
+            <div className={`h-4 rounded-full overflow-hidden ${isDark ? 'bg-slate-600' : 'bg-gray-100'}`}>
               <div
                 className="h-full rounded-full transition-all duration-500"
                 style={{
@@ -188,14 +198,14 @@ export const HorizontalBarChart = ({ data, showValues = true }) => {
 };
 
 // Donut Chart Component
-export const DonutChart = ({ data, size = 200, thickness = 40, centerText = '' }) => {
+export const DonutChart = ({ data, size = 200, thickness = 40, centerText = '', isDark = false }) => {
   const total = data.reduce((sum, item) => sum + item.value, 0);
   
   if (total === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-8">
         <div className="text-4xl mb-2">📊</div>
-        <p className="text-gray-500 text-sm">No data available</p>
+        <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>No data available</p>
       </div>
     );
   }
@@ -233,8 +243,8 @@ export const DonutChart = ({ data, size = 200, thickness = 40, centerText = '' }
         {centerText && (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="text-center">
-              <p className="text-2xl font-bold text-gray-900">{centerText}</p>
-              <p className="text-xs text-gray-500">Total</p>
+              <p className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>{centerText}</p>
+              <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Total</p>
             </div>
           </div>
         )}

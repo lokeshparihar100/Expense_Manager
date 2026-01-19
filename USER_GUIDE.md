@@ -128,6 +128,32 @@ Access from bottom navigation → **"More"**
 - **Theme**: Light, Dark, or System (auto)
 - **Hide Amounts**: Privacy mode - blurs all monetary values
 
+#### 💱 Currency Settings (Multi-Currency Support)
+
+Perfect for travelers or managing expenses in multiple currencies!
+
+**Home Currency** 🏠
+- Set your native/home currency
+- Reports will convert all transactions to this currency
+- Default currency for displaying totals
+
+**Current Currency** ✈️ (Travel Mode)
+- Set when traveling to a new country
+- New transactions will use this currency by default
+- Each transaction remembers its original currency
+
+**Exchange Rates** 📊
+- **Fetch Live Rates**: Get current rates from the internet
+- **Manual Entry**: Edit rates manually when offline
+- **Reset to Defaults**: Restore approximate default rates
+
+**How it works:**
+1. Set your **Home Currency** (e.g., USD) once
+2. When traveling, change **Current Currency** (e.g., EUR)
+3. Add expenses in local currency
+4. Dashboard and Reports show totals converted to your home currency
+5. Each transaction keeps its original currency for accuracy
+
 #### 🔔 Reminders
 - Enable/disable reminders
 - Show reminders on app open
@@ -169,6 +195,13 @@ Access from bottom navigation → **"More"**
 - Regularly export backups from Settings
 - Backups include all transactions, tags, and images
 - Store backup files safely (cloud storage, email to yourself)
+
+### Multi-Currency for Travel
+- Before traveling, go to Settings → Currency Settings
+- Set your **Home Currency** (your native currency)
+- When you arrive, change **Current Currency** to local currency
+- All expenses will be recorded in local currency
+- Reports convert everything to your home currency
 
 ---
 
@@ -222,6 +255,17 @@ If you encounter any issues:
 ---
 
 ## 📝 Version History
+
+**v1.1.0** - Multi-Currency Support
+- Multi-currency support for travelers
+- Select currency per transaction
+- Home currency for reports
+- Travel mode - change default currency while traveling
+- Live exchange rates from internet
+- Manual exchange rate entry
+- Currency conversion in reports
+- Filter transactions by currency
+- Currency info in exports (CSV, PDF)
 
 **v1.0.0** - Initial Release
 - Transaction management (add, edit, delete)
