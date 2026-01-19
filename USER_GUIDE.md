@@ -109,16 +109,29 @@ Access from bottom navigation → **"Reports"**
 
 Features:
 - **Date range presets** (This Week, This Month, Last 7/30/90 Days, This Year)
+- **Year selection** with multi-year support
 - **Custom date range** selection
 - **Multiple chart types:**
   - Pie Chart - Category breakdown
   - Donut Chart - Payment method breakdown
-  - Bar Chart - Daily spending
+  - Bar Chart - Daily/Monthly spending
   - Horizontal Bar - Top categories/payees
+
+**Multi-Year Selection:**
+- Click any year to select it (highlights the selected year)
+- Hold **Ctrl** (Windows) or **Cmd** (Mac) and click to select multiple years
+- When multiple years are selected, reports show combined data
+- A message shows which years are included
+
+**Multi-Currency Reports:**
+- When transactions span multiple currencies, a conversion toggle appears
+- Convert all amounts to your preferred currency for accurate totals
+- Search and select any currency for the report
+- Or view amounts in original currencies (with warning about mixed totals)
 
 **Export options:**
 - 📄 **Export PDF** - Full report with charts and transaction list
-- 📊 **Export CSV** - Spreadsheet-compatible data
+- 📊 **Export CSV** - Spreadsheet-compatible data (includes currency column)
 
 ### ⚙️ Settings
 
@@ -256,6 +269,23 @@ If you encounter any issues:
 
 ## 📝 Version History
 
+**v1.2.0** - UI/UX Improvements
+- 🎨 **Full Dark Mode Support** - All components now properly support dark mode:
+  - Reports page charts and tables
+  - Date range picker
+  - Reminder modal
+  - All chart components
+- 📅 **Multi-Year Selection** - Select multiple years in reports:
+  - Click to select single year (properly highlights selection)
+  - Ctrl/Cmd + Click for multi-select
+  - Shows combined data for selected years
+- 💱 **Currency Fixes**:
+  - Fixed currency symbol overflow for long symbols (e.g., Mex$)
+  - Charts now display correct currency symbols
+  - Added Georgian Lari (GEL) currency
+- 🔍 **Searchable Currency Picker** - Search currencies by name or code
+- 🏠 **Independent Home/Current Currency** - Fixed sync issues
+
 **v1.1.0** - Multi-Currency Support
 - Multi-currency support for travelers
 - Select currency per transaction
@@ -281,4 +311,10 @@ If you encounter any issues:
 
 ---
 
-Made with ❤️ for easy expense tracking!
+<div align="center">
+  
+  Made with ❤️ by **Lokesh Parihar**
+  
+  [Report Bug](../../issues) · [Request Feature](../../issues)
+  
+</div>
