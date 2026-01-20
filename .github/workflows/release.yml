@@ -1,0 +1,65 @@
+# Create GitHub Release when version tag is pushed
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*' # Triggers on version tags like v1.0.0, v1.4.0
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Needed for changelog generation
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build for production
+        run: npm run build
+        env:
+          VITE_BASE_PATH: /Expense_Manager/
+
+      - name: Create build archive
+        run: |
+          cd dist
+          zip -r ../expense-manager-${{ github.ref_name }}.zip .
+          cd ..
+          tar -czvf expense-manager-${{ github.ref_name }}.tar.gz -C dist .
+
+      - name: Generate Release Notes
+        id: changelog
+        run: |
+          echo "## What's New in ${{ github.ref_name }}" > RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          echo "### 🚀 Features & Improvements" >> RELEASE_NOTES.md
+          git log $(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || git rev-list --max-parents=0 HEAD)..HEAD --pretty=format:"- %s" --no-merges >> RELEASE_NOTES.md || echo "- Initial release" >> RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          echo "### 📱 Installation" >> RELEASE_NOTES.md
+          echo "**Online (Recommended):** Visit [https://lokeshparihar100.github.io/Expense_Manager/](https://lokeshparihar100.github.io/Expense_Manager/) and tap 'Add to Home Screen'" >> RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          echo "**Self-Host:** Download the zip/tar.gz below and serve with any static file server" >> RELEASE_NOTES.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          body_path: RELEASE_NOTES.md
+          files: |
+            expense-manager-${{ github.ref_name }}.zip
+            expense-manager-${{ github.ref_name }}.tar.gz
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

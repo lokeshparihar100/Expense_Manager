@@ -1,12 +1,15 @@
 {
   "name": "expense_manager",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "A modern, privacy-first expense tracking PWA with multi-currency support",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "version:patch": "npm version patch && git push && git push --tags",
+    "version:minor": "npm version minor && git push && git push --tags",
+    "version:major": "npm version major && git push && git push --tags"
   },
   "keywords": [
     "expense-tracker",
