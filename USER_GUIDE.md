@@ -132,6 +132,7 @@ Features:
 **Export options:**
 - 📄 **Export PDF** - Full report with charts and transaction list
 - 📊 **Export CSV** - Spreadsheet-compatible data (includes currency column)
+- ☁️ **Upload to Google Drive** - When connected, upload reports directly to Drive
 
 ### ⚙️ Settings
 
@@ -176,6 +177,174 @@ Perfect for travelers or managing expenses in multiple currencies!
 - **Export Backup**: Download all your data as a JSON file
 - **Import Backup**: Restore from a backup file
 - **Clear All Data**: Reset the app (irreversible!)
+
+#### ⏰ Scheduled Backup (Backup Reminders)
+Protect your data with scheduled backup reminders that prompt you to download backups!
+
+**Why Download-Based Backups?**
+Your app data is stored in browser storage. If browser data is cleared (cache, cookies, etc.), 
+you lose everything. Downloaded backup files are saved to your device permanently, keeping your data safe.
+
+**Features:**
+- **Enable/Disable**: Toggle backup reminders on or off
+- **Backup Time**: Choose when to be reminded (default: 9:00 AM)
+- **Frequency**: Daily or weekly backup reminders
+- **Backup Status**: See when you last downloaded a backup
+- **Download Now**: Manually download a backup anytime
+
+**When Does the Backup Popup Appear?**
+The backup reminder popup appears when ALL of these conditions are met:
+1. **Scheduled time has passed** - Current time is AFTER your set backup time
+2. **No backup downloaded recently** - You haven't downloaded a backup today (daily) or this week (weekly)
+3. **Not dismissed this session** - You haven't clicked "Remind Later" since opening the browser
+4. **Has data** - You have at least one transaction to backup
+
+**Example:**
+- You set backup time to 6:02 PM
+- At 6:00 PM, you refresh the page → No popup (time hasn't passed yet)
+- At 6:03 PM, you refresh the page → Popup appears! (time has passed)
+- You click "Remind Later" → Popup dismissed for this browser session
+- You close the browser completely and reopen → Popup will appear again
+- You download the backup → No popup until tomorrow (for daily frequency)
+
+**Important Notes:**
+- The popup only appears when you OPEN or REFRESH the app after the scheduled time
+- The app doesn't run in the background - it checks when you use it
+- "Remind Later" dismisses only for this browser session (closes when you close the browser)
+- Changing any backup setting clears the "Remind Later" status
+
+**How to test:**
+1. Go to Settings → Scheduled Backup
+2. Set the backup time to a few minutes from now
+3. Wait until that time passes
+4. Refresh the page or switch to another tab and back
+5. The backup popup should appear
+
+**Tips:**
+- Store backups in multiple locations (Google Drive, Dropbox, email to yourself)
+- The backup file is a JSON file that can be imported back using Settings → Import Backup
+- Check browser console (F12 → Console) for "[Backup]" logs if troubleshooting
+
+#### ☁️ Google Drive Backup (Cloud Storage)
+
+Automatically upload backups directly to your Google Drive! When enabled, scheduled backups 
+are uploaded directly to a dedicated folder in your Drive - no manual downloading needed.
+
+**Features:**
+- **Automatic Cloud Backup**: Scheduled backups upload directly to Drive (no popup needed)
+- **Dedicated Folders**: 
+  - Backups stored in "Expense_Manager_Backups" folder
+  - Reports stored in "Expense_Manager_Reports" folder
+- **7-Day Retention**: Keeps the 7 most recent backups, automatically deletes older ones
+- **Manual Upload**: Upload backup to Drive anytime from Settings
+- **Report Upload**: Upload CSV reports directly from Reports page
+- **View Backups**: Browse all your Drive backups from within the app
+
+**Setup Instructions:**
+
+To use Google Drive backup, you need to create a Google Cloud project with Drive API enabled.
+This is a one-time setup:
+
+1. **Go to Google Cloud Console**
+   - Visit: https://console.cloud.google.com/
+   - Sign in with your Google account
+
+2. **Create a New Project** (or use existing)
+   - Click "Select a project" → "New Project"
+   - Name it (e.g., "Expense Manager Backup")
+   - Click "Create"
+
+3. **Enable Google Drive API**
+   - Go to "APIs & Services" → "Library"
+   - Search for "Google Drive API"
+   - Click on it and click "Enable"
+
+4. **Create OAuth Credentials**
+   - Go to "APIs & Services" → "Credentials"
+   - Click "Create Credentials" → "OAuth client ID"
+   - If prompted, configure OAuth consent screen:
+     - User Type: External
+     - App name: "Expense Manager Backup"
+     - Support email: Your email
+     - Save and Continue through all steps
+   - For Application type, select "Web application"
+   - Name: "Expense Manager Web"
+   - Under "Authorized JavaScript origins", add your app URL:
+     - For local development: `http://localhost:5173`
+     - For production: Your deployed app URL
+   - Click "Create"
+
+5. **Copy Client ID**
+   - Copy the Client ID (looks like: `xxxxx.apps.googleusercontent.com`)
+   - Paste it into the app: Settings → Google Drive Backup → Google Client ID
+
+6. **Connect Your Account**
+   - Click "Connect Google Drive"
+   - Sign in with your Google account
+   - Grant permission to access Google Drive (only for files created by this app)
+
+**How Automatic Backup Works:**
+- When Google Drive is connected AND "Auto Upload" is enabled
+- Scheduled backups upload directly to Drive (no popup!)
+- You'll see a brief notification: "Uploading backup to Google Drive..."
+- On success: "Backup uploaded to Google Drive!" (disappears after 5 seconds)
+- On failure: Falls back to showing the manual download popup
+
+**Important Notes:**
+- Your Google API credentials are stored locally in your browser
+- The app can only access files it creates (limited scope for security)
+- If tokens expire, you'll need to reconnect (click "Connect Google Drive" again)
+- Backups are stored in your personal Google Drive in a folder called "Expense_Manager_Backups"
+- Your Client ID is masked after successful connection for security
+
+#### 🔧 Google Drive Troubleshooting
+
+**Error: "Access blocked: App has not completed the Google verification process"**
+
+This error occurs because your Google Cloud project is in "Testing" mode. You need to add yourself as a test user:
+
+1. **Go to Google Cloud Console**
+   - Visit: https://console.cloud.google.com/
+   - Select your project
+
+2. **Navigate to OAuth Consent Screen**
+   - Go to "APIs & Services" → "OAuth consent screen"
+
+3. **Add Test Users**
+   - Scroll down to the "Test users" section
+   - Click "**+ ADD USERS**"
+   - Enter your email address (the one you use to sign in)
+   - Click "Save"
+
+4. **Try Again**
+   - Go back to the Expense Manager app
+   - Click "Connect Google Drive" again
+   - It should now work!
+
+**Why does this happen?**
+- When you create an OAuth app, it starts in "Testing" mode
+- Only emails listed as "Test users" can use it
+- This is a security feature by Google
+- You can add up to 100 test users
+
+**Alternative: Publish the App**
+If you want anyone to use the app (not just test users):
+1. Go to "OAuth consent screen"
+2. Click "PUBLISH APP"
+3. Note: Google may require app verification for certain scopes
+
+**Error: "Backup appears on Drive home page instead of folder"**
+- The app stores backups in a folder called "Expense_Manager_Backups"
+- If you see files in "Recent", that's normal - Google shows all recent files there
+- Check the actual folder by:
+  1. Open Google Drive
+  2. Look for "Expense_Manager_Backups" folder in "My Drive"
+  3. Your backups should be inside that folder
+
+**Error: "Token expired" or "Sign-in required"**
+- Google access tokens expire after some time
+- Simply click "Connect Google Drive" again to refresh the connection
+- Your folder and existing backups will be preserved
 
 ---
 
@@ -267,7 +436,81 @@ If you encounter any issues:
 
 ---
 
+## 🐛 Report a Bug or Request a Feature
+
+Found a bug or have an idea for a new feature? You can report it directly from the app!
+
+### How to Report:
+
+1. Go to **Help & About** (More → Help)
+2. Scroll down to **"Report an Issue"**
+3. Choose **"Report Bug"** or **"Request Feature"**
+4. Fill in the form:
+   - **Title**: Brief description of the issue
+   - **Description**: Detailed explanation
+   - **Steps to Reproduce**: (for bugs) How to recreate the issue
+   - **Expected vs Actual Behavior**: (for bugs) What should happen vs what happens
+   - **Severity**: Low, Medium, High, or Critical
+
+5. Click **"Submit on GitHub"**
+6. This opens GitHub with your report pre-filled
+7. Review and submit the issue
+
+### Automatically Included Info:
+- App version
+- Browser type
+- Operating system
+- Screen size
+- Whether app is installed as PWA
+
+### Note:
+- You need a GitHub account to submit issues
+- Your device info helps us reproduce and fix bugs faster
+- All reports are public on GitHub
+
+---
+
 ## 📝 Version History
+
+**v1.4.0** - Google Drive Backup Integration
+- ☁️ **Google Drive Backup**: Automatically upload backups to Google Drive!
+  - Connect your Google account with OAuth authentication
+  - Automatic cloud backup when scheduled backup is due (no popup needed)
+  - Backups stored in dedicated "Expense_Manager_Backups" folder
+  - View and manage Drive backups from within the app
+  - 7-day retention: keeps 7 most recent backups, auto-deletes older ones
+  - Manual upload anytime from Settings
+  - Fallback to download popup if Drive upload fails
+- 📊 **Report Upload to Drive**:
+  - Upload CSV reports directly to Google Drive from Reports page
+  - Reports stored in "Expense_Manager_Reports" folder
+  - Upload transactions or summary reports with one click
+- 🔒 **Security Improvements**:
+  - Client ID is masked when connected (only shows first/last characters)
+  - Folder verification before each upload
+- 🔧 **Improved Scheduled Backup**:
+  - Auto-uploads to Drive when connected and enabled
+  - Shows upload progress notification
+  - Better error handling with fallback to manual download
+- 🎨 **UI Improvements**:
+  - Collapsible backup sections in Settings for cleaner UI
+  - Searchable currency picker in transaction form
+  - Consolidated backup controls
+
+**v1.3.0** - Scheduled Backup & Currency Fixes
+- ⏰ **Scheduled Backup Reminders**: Get prompted to download backups at scheduled times
+  - Enable/disable backup reminders
+  - Set custom backup time (default: 9:00 AM)
+  - Choose frequency: daily or weekly
+  - Backups download as files to your device (safe from browser data clearing)
+  - See backup status and days since last backup
+- 💱 **Currency Display Fixes**:
+  - Dashboard now always shows totals in home currency
+  - Reports properly convert single-currency transactions to report currency
+  - Currency conversion indicator shows when conversion is active
+- 🔄 **Improved Currency Handling**:
+  - Single currency transactions now properly convert to home currency
+  - Reports show conversion toggle when transaction currency differs from home currency
 
 **v1.2.0** - UI/UX Improvements
 - 🎨 **Full Dark Mode Support** - All components now properly support dark mode:

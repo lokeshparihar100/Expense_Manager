@@ -4,6 +4,7 @@ import { ExpenseProvider } from './context/ExpenseContext';
 import { SettingsProvider } from './context/SettingsContext';
 import Layout from './components/Layout';
 import InstallPrompt from './components/InstallPrompt';
+import ScheduledBackupManager from './components/ScheduledBackupManager';
 import Dashboard from './pages/Dashboard';
 import AddTransaction from './pages/AddTransaction';
 import EditTransaction from './pages/EditTransaction';
@@ -14,11 +15,14 @@ import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import Help from './pages/Help';
 
+// Get base path from Vite (for GitHub Pages deployment)
+const basePath = import.meta.env.BASE_URL || '/';
+
 function App() {
   return (
     <SettingsProvider>
       <ExpenseProvider>
-        <Router>
+        <Router basename={basePath}>
           <Layout>
             <Routes>
               <Route path="/" element={<Dashboard />} />
@@ -33,6 +37,7 @@ function App() {
               <Route path="/help" element={<Help />} />
             </Routes>
             <InstallPrompt />
+            <ScheduledBackupManager />
           </Layout>
         </Router>
       </ExpenseProvider>

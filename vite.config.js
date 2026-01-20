@@ -11,7 +11,7 @@ const healthCheckPlugin = () => ({
       res.end(JSON.stringify({
         status: 'ok',
         app: 'Daily Expense Manager',
-        version: '1.0.0',
+        version: '1.4.0',
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
         environment: process.env.NODE_ENV || 'development'
@@ -20,7 +20,11 @@ const healthCheckPlugin = () => ({
   }
 });
 
+// Get base path from environment variable (for GitHub Pages)
+const base = process.env.VITE_BASE_PATH || '/';
+
 export default defineConfig({
+  base,
   plugins: [
     react(),
     healthCheckPlugin(),
@@ -40,8 +44,8 @@ export default defineConfig({
         background_color: '#f3f4f6',
         display: 'standalone',
         orientation: 'portrait',
-        scope: '/',
-        start_url: '/',
+        scope: base,
+        start_url: base,
         categories: ['finance', 'productivity', 'utilities'],
         icons: [
           {
@@ -77,21 +81,21 @@ export default defineConfig({
             name: 'Add Expense',
             short_name: 'Expense',
             description: 'Quickly add a new expense',
-            url: '/add/expense',
+            url: `${base}add/expense`,
             icons: [{ src: 'pwa-192x192.svg', sizes: '192x192' }]
           },
           {
             name: 'Add Income',
             short_name: 'Income',
             description: 'Quickly add a new income',
-            url: '/add/income',
+            url: `${base}add/income`,
             icons: [{ src: 'pwa-192x192.svg', sizes: '192x192' }]
           },
           {
             name: 'View Reports',
             short_name: 'Reports',
             description: 'View your expense reports',
-            url: '/reports',
+            url: `${base}reports`,
             icons: [{ src: 'pwa-192x192.svg', sizes: '192x192' }]
           }
         ]

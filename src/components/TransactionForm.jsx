@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useExpense } from '../context/ExpenseContext';
 import { useSettings } from '../context/SettingsContext';
 import { getTodayForInput } from '../utils/storage';
@@ -61,6 +61,24 @@ const TransactionForm = ({
 
   const [errors, setErrors] = useState({});
   const [showCalculator, setShowCalculator] = useState(false);
+  
+  // Currency picker state
+  const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
+  const [currencySearch, setCurrencySearch] = useState('');
+  const currencyPickerRef = useRef(null);
+  
+  // Close currency picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (currencyPickerRef.current && !currencyPickerRef.current.contains(event.target)) {
+        setShowCurrencyPicker(false);
+        setCurrencySearch('');
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     if (initialData) {
@@ -197,26 +215,74 @@ const TransactionForm = ({
       <div>
         <label className={labelClasses}>Amount *</label>
         <div className="flex gap-2">
-          {/* Currency Selector */}
-          <div className="relative flex-shrink-0">
-            <select
-              name="currency"
-              value={formData.currency}
-              onChange={handleChange}
-              className={`${inputClasses} w-28 pr-8 appearance-none cursor-pointer text-sm`}
-              title="Select currency"
+          {/* Currency Selector with Search */}
+          <div className="relative flex-shrink-0" ref={currencyPickerRef}>
+            <button
+              type="button"
+              onClick={() => {
+                setShowCurrencyPicker(!showCurrencyPicker);
+                setCurrencySearch('');
+              }}
+              className={`${inputClasses} w-24 pr-7 text-sm flex items-center gap-1.5 cursor-pointer`}
             >
-              {Object.values(currencies).sort((a, b) => a.name.localeCompare(b.name)).map(curr => (
-                <option key={curr.code} value={curr.code}>
-                  {curr.flag} {curr.code}
-                </option>
-              ))}
-            </select>
+              <span>{currencies[formData.currency]?.flag}</span>
+              <span>{formData.currency}</span>
+            </button>
             <div className={`absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </div>
+            
+            {/* Currency Dropdown with Search */}
+            {showCurrencyPicker && (
+              <div className={`absolute left-0 top-full mt-1 w-64 rounded-xl shadow-lg z-50 overflow-hidden ${
+                isDark ? 'bg-slate-700 border border-slate-600' : 'bg-white border border-gray-200'
+              }`}>
+                <div className="p-2">
+                  <input
+                    type="text"
+                    placeholder="Search currency..."
+                    value={currencySearch}
+                    onChange={(e) => setCurrencySearch(e.target.value)}
+                    className={`w-full px-3 py-2 rounded-lg text-sm ${
+                      isDark 
+                        ? 'bg-slate-600 text-white placeholder-slate-400 border-slate-500' 
+                        : 'bg-gray-50 border border-gray-200'
+                    }`}
+                    autoFocus
+                  />
+                </div>
+                <div className="max-h-48 overflow-y-auto">
+                  {Object.values(currencies)
+                    .filter(c => 
+                      c.name.toLowerCase().includes(currencySearch.toLowerCase()) ||
+                      c.code.toLowerCase().includes(currencySearch.toLowerCase())
+                    )
+                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .map(curr => (
+                      <button
+                        key={curr.code}
+                        type="button"
+                        onClick={() => {
+                          setFormData(prev => ({ ...prev, currency: curr.code }));
+                          setShowCurrencyPicker(false);
+                          setCurrencySearch('');
+                        }}
+                        className={`w-full flex items-center gap-3 px-3 py-2 text-left text-sm transition-colors ${
+                          curr.code === formData.currency
+                            ? isDark ? 'bg-primary-600 text-white' : 'bg-primary-50 text-primary-700'
+                            : isDark ? 'hover:bg-slate-600 text-white' : 'hover:bg-gray-50 text-gray-700'
+                        }`}
+                      >
+                        <span className="text-lg">{curr.flag}</span>
+                        <span className="font-medium">{curr.code}</span>
+                        <span className={`text-xs truncate ${isDark ? 'text-slate-300' : 'text-gray-500'}`}>{curr.name}</span>
+                      </button>
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
           
           {/* Amount Input */}

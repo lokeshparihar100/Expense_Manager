@@ -2,11 +2,57 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSettings } from '../context/SettingsContext';
 
+// GitHub repository info
+const GITHUB_REPO_OWNER = 'lokeshparihar100';
+const GITHUB_REPO_NAME = 'Expense_Manager';
+
+// Get device/browser info for bug reports
+const getDeviceInfo = () => {
+  const ua = navigator.userAgent;
+  let browser = 'Unknown';
+  let os = 'Unknown';
+  
+  // Detect browser
+  if (ua.includes('Firefox')) browser = 'Firefox';
+  else if (ua.includes('Edg')) browser = 'Edge';
+  else if (ua.includes('Chrome')) browser = 'Chrome';
+  else if (ua.includes('Safari')) browser = 'Safari';
+  
+  // Detect OS
+  if (ua.includes('Windows')) os = 'Windows';
+  else if (ua.includes('Mac')) os = 'macOS';
+  else if (ua.includes('Linux')) os = 'Linux';
+  else if (ua.includes('Android')) os = 'Android';
+  else if (ua.includes('iPhone') || ua.includes('iPad')) os = 'iOS';
+  
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+  
+  return {
+    browser,
+    os,
+    isStandalone,
+    screenSize: `${window.screen.width}x${window.screen.height}`,
+    appVersion: '1.4.0'
+  };
+};
+
 const Help = () => {
   const navigate = useNavigate();
   const { isDark } = useSettings();
   const [isInstalled, setIsInstalled] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
+  
+  // Bug report form state
+  const [showBugReport, setShowBugReport] = useState(false);
+  const [bugReport, setBugReport] = useState({
+    title: '',
+    description: '',
+    stepsToReproduce: '',
+    expectedBehavior: '',
+    actualBehavior: '',
+    severity: 'medium',
+    category: 'bug'
+  });
 
   useEffect(() => {
     // Check if installed
@@ -14,6 +60,74 @@ const Help = () => {
     // Check if iOS
     setIsIOS(/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream);
   }, []);
+  
+  // Handle bug report form changes
+  const handleBugReportChange = (field, value) => {
+    setBugReport(prev => ({ ...prev, [field]: value }));
+  };
+  
+  // Generate GitHub issue URL
+  const generateGitHubIssueUrl = () => {
+    const deviceInfo = getDeviceInfo();
+    
+    const title = encodeURIComponent(`[${bugReport.category.toUpperCase()}] ${bugReport.title}`);
+    
+    const body = encodeURIComponent(`## Description
+${bugReport.description}
+
+## Steps to Reproduce
+${bugReport.stepsToReproduce || 'N/A'}
+
+## Expected Behavior
+${bugReport.expectedBehavior || 'N/A'}
+
+## Actual Behavior
+${bugReport.actualBehavior || 'N/A'}
+
+## Severity
+${bugReport.severity}
+
+## Environment
+- **App Version**: ${deviceInfo.appVersion}
+- **Browser**: ${deviceInfo.browser}
+- **OS**: ${deviceInfo.os}
+- **Screen Size**: ${deviceInfo.screenSize}
+- **Installed as PWA**: ${deviceInfo.isStandalone ? 'Yes' : 'No'}
+
+---
+*This issue was generated from the in-app bug report form.*`);
+
+    const labels = encodeURIComponent(bugReport.category === 'bug' ? 'bug' : 'enhancement');
+    
+    return `https://github.com/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}/issues/new?title=${title}&body=${body}&labels=${labels}`;
+  };
+  
+  // Submit bug report (opens GitHub issue page)
+  const handleSubmitBugReport = () => {
+    if (!bugReport.title.trim()) {
+      alert('Please enter a title for your report');
+      return;
+    }
+    if (!bugReport.description.trim()) {
+      alert('Please describe the issue');
+      return;
+    }
+    
+    const url = generateGitHubIssueUrl();
+    window.open(url, '_blank');
+    
+    // Reset form
+    setBugReport({
+      title: '',
+      description: '',
+      stepsToReproduce: '',
+      expectedBehavior: '',
+      actualBehavior: '',
+      severity: 'medium',
+      category: 'bug'
+    });
+    setShowBugReport(false);
+  };
 
   const faqs = [
     {
@@ -34,7 +148,15 @@ const Help = () => {
     },
     {
       q: 'How do I backup my data?',
-      a: 'Go to Settings → Export Backup. This downloads a JSON file with all your data including transactions and images.'
+      a: 'Go to Settings → Export Backup for a manual backup. The app also has Scheduled Backup feature that automatically backs up your data daily at a configurable time.'
+    },
+    {
+      q: 'What is Scheduled Backup?',
+      a: 'Scheduled Backup reminds you to download a backup file at a set time (default: 9:00 AM daily). When you open or refresh the app AFTER the scheduled time passes, a popup asks you to download your backup. The backup file is saved to your device, keeping your data safe even if browser data is cleared. Check the User Guide for detailed trigger conditions.'
+    },
+    {
+      q: 'How do I use Google Drive backup?',
+      a: 'Go to Settings → Google Drive Backup. Enter your Google Client ID (requires one-time setup in Google Cloud Console), then connect your account. Once connected, enable "Auto Upload" and scheduled backups will automatically upload to Drive - no download popup needed! Your backups are stored in a dedicated folder in your Google Drive.'
     },
     {
       q: 'Can I use the app offline?',
@@ -55,6 +177,10 @@ const Help = () => {
     {
       q: 'How do I add custom categories?',
       a: 'Go to Settings → Manage Tags. You can add, edit, or delete categories, payees, and payment methods with custom icons.'
+    },
+    {
+      q: 'How do I report a bug or request a feature?',
+      a: 'Scroll down to the "Report an Issue" section below. Click "Report Bug" or "Request Feature", fill in the details, and click "Submit on GitHub". This opens a pre-filled issue on GitHub. Device info is automatically included to help debug.'
     }
   ];
 
@@ -157,6 +283,7 @@ const Help = () => {
             { icon: '📸', label: 'Receipt Images' },
             { icon: '📊', label: 'Charts & Reports' },
             { icon: '💾', label: 'Backup & Restore' },
+            { icon: '☁️', label: 'Google Drive Sync' },
             { icon: '🧮', label: 'Calculator' },
             { icon: '🌙', label: 'Dark Mode' },
             { icon: '👁️', label: 'Privacy Mode' },
@@ -214,6 +341,252 @@ const Help = () => {
         </div>
       </div>
 
+      {/* Report Issue / Bug Report */}
+      <div className={`rounded-2xl p-4 mb-4 shadow-sm ${isDark ? 'bg-slate-800' : 'bg-white'}`}>
+        <h2 className={`font-semibold mb-3 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <span className="text-xl">🐛</span>
+          Report an Issue
+        </h2>
+        
+        {!showBugReport ? (
+          <div>
+            <p className={`text-sm mb-4 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+              Found a bug or have a feature request? Let us know! Your report will be submitted as a GitHub issue.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => {
+                  setBugReport(prev => ({ ...prev, category: 'bug' }));
+                  setShowBugReport(true);
+                }}
+                className={`flex items-center justify-center gap-2 p-3 rounded-xl font-medium transition-colors ${
+                  isDark 
+                    ? 'bg-red-900/30 text-red-400 hover:bg-red-900/50' 
+                    : 'bg-red-50 text-red-700 hover:bg-red-100'
+                }`}
+              >
+                <span>🐛</span>
+                Report Bug
+              </button>
+              <button
+                onClick={() => {
+                  setBugReport(prev => ({ ...prev, category: 'feature' }));
+                  setShowBugReport(true);
+                }}
+                className={`flex items-center justify-center gap-2 p-3 rounded-xl font-medium transition-colors ${
+                  isDark 
+                    ? 'bg-blue-900/30 text-blue-400 hover:bg-blue-900/50' 
+                    : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                }`}
+              >
+                <span>💡</span>
+                Request Feature
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Category Toggle */}
+            <div className={`flex rounded-xl p-1 ${isDark ? 'bg-slate-700' : 'bg-gray-100'}`}>
+              <button
+                type="button"
+                onClick={() => handleBugReportChange('category', 'bug')}
+                className={`flex-1 py-2 px-3 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2 ${
+                  bugReport.category === 'bug'
+                    ? 'bg-red-500 text-white shadow'
+                    : isDark ? 'text-slate-400' : 'text-gray-600'
+                }`}
+              >
+                <span>🐛</span> Bug Report
+              </button>
+              <button
+                type="button"
+                onClick={() => handleBugReportChange('category', 'feature')}
+                className={`flex-1 py-2 px-3 rounded-lg font-medium text-sm transition-all flex items-center justify-center gap-2 ${
+                  bugReport.category === 'feature'
+                    ? 'bg-blue-500 text-white shadow'
+                    : isDark ? 'text-slate-400' : 'text-gray-600'
+                }`}
+              >
+                <span>💡</span> Feature Request
+              </button>
+            </div>
+
+            {/* Title */}
+            <div>
+              <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
+                Title <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={bugReport.title}
+                onChange={(e) => handleBugReportChange('title', e.target.value)}
+                placeholder={bugReport.category === 'bug' ? 'Brief description of the bug' : 'Feature you would like'}
+                className={`w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-primary-200 ${
+                  isDark 
+                    ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' 
+                    : 'bg-white border-gray-200 text-gray-900'
+                }`}
+              />
+            </div>
+
+            {/* Description */}
+            <div>
+              <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
+                Description <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={bugReport.description}
+                onChange={(e) => handleBugReportChange('description', e.target.value)}
+                placeholder={bugReport.category === 'bug' 
+                  ? 'Describe the issue in detail. What did you expect to happen? What actually happened?' 
+                  : 'Describe the feature you would like. How would it help you?'
+                }
+                rows={3}
+                className={`w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-primary-200 ${
+                  isDark 
+                    ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' 
+                    : 'bg-white border-gray-200 text-gray-900'
+                }`}
+              />
+            </div>
+
+            {/* Steps to Reproduce - Only for bugs */}
+            {bugReport.category === 'bug' && (
+              <>
+                <div>
+                  <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
+                    Steps to Reproduce
+                  </label>
+                  <textarea
+                    value={bugReport.stepsToReproduce}
+                    onChange={(e) => handleBugReportChange('stepsToReproduce', e.target.value)}
+                    placeholder="1. Go to...&#10;2. Click on...&#10;3. See error..."
+                    rows={3}
+                    className={`w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-primary-200 ${
+                      isDark 
+                        ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' 
+                        : 'bg-white border-gray-200 text-gray-900'
+                    }`}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
+                      Expected Behavior
+                    </label>
+                    <textarea
+                      value={bugReport.expectedBehavior}
+                      onChange={(e) => handleBugReportChange('expectedBehavior', e.target.value)}
+                      placeholder="What should happen"
+                      rows={2}
+                      className={`w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-primary-200 text-sm ${
+                        isDark 
+                          ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' 
+                          : 'bg-white border-gray-200 text-gray-900'
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
+                      Actual Behavior
+                    </label>
+                    <textarea
+                      value={bugReport.actualBehavior}
+                      onChange={(e) => handleBugReportChange('actualBehavior', e.target.value)}
+                      placeholder="What actually happens"
+                      rows={2}
+                      className={`w-full px-4 py-3 rounded-xl border focus:ring-2 focus:ring-primary-200 text-sm ${
+                        isDark 
+                          ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' 
+                          : 'bg-white border-gray-200 text-gray-900'
+                      }`}
+                    />
+                  </div>
+                </div>
+
+                {/* Severity */}
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
+                    Severity
+                  </label>
+                  <div className="flex gap-2">
+                    {[
+                      { value: 'low', label: 'Low', color: 'green' },
+                      { value: 'medium', label: 'Medium', color: 'yellow' },
+                      { value: 'high', label: 'High', color: 'orange' },
+                      { value: 'critical', label: 'Critical', color: 'red' }
+                    ].map(sev => (
+                      <button
+                        key={sev.value}
+                        type="button"
+                        onClick={() => handleBugReportChange('severity', sev.value)}
+                        className={`flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-all ${
+                          bugReport.severity === sev.value
+                            ? sev.color === 'green' ? 'bg-green-500 text-white'
+                              : sev.color === 'yellow' ? 'bg-yellow-500 text-white'
+                              : sev.color === 'orange' ? 'bg-orange-500 text-white'
+                              : 'bg-red-500 text-white'
+                            : isDark ? 'bg-slate-700 text-slate-300' : 'bg-gray-100 text-gray-600'
+                        }`}
+                      >
+                        {sev.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Device Info Preview */}
+            <div className={`p-3 rounded-xl text-xs ${isDark ? 'bg-slate-700' : 'bg-gray-50'}`}>
+              <p className={`font-medium mb-1 ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
+                📱 Device info will be included:
+              </p>
+              <p className={`${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+                {(() => {
+                  const info = getDeviceInfo();
+                  return `${info.browser} on ${info.os}, Screen: ${info.screenSize}, PWA: ${info.isStandalone ? 'Yes' : 'No'}`;
+                })()}
+              </p>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowBugReport(false)}
+                className={`flex-1 py-3 px-4 rounded-xl font-medium transition-colors ${
+                  isDark 
+                    ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitBugReport}
+                className={`flex-1 py-3 px-4 rounded-xl font-medium text-white transition-colors flex items-center justify-center gap-2 ${
+                  bugReport.category === 'bug'
+                    ? 'bg-red-500 hover:bg-red-600'
+                    : 'bg-blue-500 hover:bg-blue-600'
+                }`}
+              >
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                </svg>
+                Submit on GitHub
+              </button>
+            </div>
+
+            <p className={`text-xs text-center ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>
+              This will open GitHub in a new tab with your report pre-filled. 
+              You may need a GitHub account to submit.
+            </p>
+          </div>
+        )}
+      </div>
+
       {/* About */}
       <div className="bg-gradient-to-r from-primary-500 to-purple-600 rounded-2xl p-4 text-white">
         <div className="flex items-center gap-3 mb-3">
@@ -222,7 +595,7 @@ const Help = () => {
           </div>
           <div>
             <h3 className="font-bold">Daily Expense Manager</h3>
-            <p className="text-sm opacity-90">Version 1.0.0</p>
+            <p className="text-sm opacity-90">Version 1.4.0</p>
           </div>
         </div>
         <p className="text-sm opacity-90 mb-3">
