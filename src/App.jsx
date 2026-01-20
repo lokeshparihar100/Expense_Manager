@@ -15,11 +15,14 @@ import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import Help from './pages/Help';
 
+// Get base path from Vite (for GitHub Pages deployment)
+const basePath = import.meta.env.BASE_URL || '/';
+
 function App() {
   return (
     <SettingsProvider>
       <ExpenseProvider>
-        <Router>
+        <Router basename={basePath}>
           <Layout>
             <Routes>
               <Route path="/" element={<Dashboard />} />
