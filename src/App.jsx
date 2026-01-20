@@ -4,6 +4,7 @@ import { ExpenseProvider } from './context/ExpenseContext';
 import { SettingsProvider } from './context/SettingsContext';
 import Layout from './components/Layout';
 import InstallPrompt from './components/InstallPrompt';
+import ScheduledBackupManager from './components/ScheduledBackupManager';
 import Dashboard from './pages/Dashboard';
 import AddTransaction from './pages/AddTransaction';
 import EditTransaction from './pages/EditTransaction';
@@ -33,6 +34,7 @@ function App() {
               <Route path="/help" element={<Help />} />
             </Routes>
             <InstallPrompt />
+            <ScheduledBackupManager />
           </Layout>
         </Router>
       </ExpenseProvider>

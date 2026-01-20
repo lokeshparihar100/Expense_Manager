@@ -14,6 +14,25 @@ import {
   REMINDER_TYPES,
   DURATION_UNITS
 } from '../utils/reminders';
+import {
+  getScheduledBackupSettings,
+  saveScheduledBackupSettings,
+  formatBackupTime,
+  getBackupStatus,
+  downloadBackupNow,
+  getDaysSinceLastBackup,
+  uploadBackupToDriveNow
+} from '../utils/scheduledBackup';
+import {
+  getDriveSettings,
+  saveDriveSettings,
+  signInWithGoogle,
+  getStoredToken,
+  clearToken,
+  loadGoogleApi,
+  listDriveBackups,
+  getOrCreateBackupFolder
+} from '../utils/googleDrive';
 import { useSettings } from '../context/SettingsContext';
 import { useExpense } from '../context/ExpenseContext';
 import Modal, { ConfirmModal } from '../components/Modal';
@@ -82,10 +101,33 @@ const Settings = () => {
     showOnStartup: true
   });
 
+  // Scheduled backup settings
+  const [scheduledBackupSettings, setScheduledBackupSettings] = useState(getScheduledBackupSettings);
+  const [backupStatus, setBackupStatus] = useState(null);
+  const [isDownloadingScheduledBackup, setIsDownloadingScheduledBackup] = useState(false);
+  const [scheduledBackupResult, setScheduledBackupResult] = useState(null);
+
+  // Google Drive settings
+  const [driveSettings, setDriveSettings] = useState(getDriveSettings);
+  const [driveConnected, setDriveConnected] = useState(false);
+  const [isConnectingDrive, setIsConnectingDrive] = useState(false);
+  const [driveResult, setDriveResult] = useState(null);
+  const [driveBackups, setDriveBackups] = useState([]);
+  const [isLoadingDriveBackups, setIsLoadingDriveBackups] = useState(false);
+  const [showDriveBackupsModal, setShowDriveBackupsModal] = useState(false);
+  
+  // Collapsible sections
+  const [expandedSection, setExpandedSection] = useState(null); // 'backup', 'scheduled', 'drive', null
+
   // Load current stats and reminder settings on mount
   useEffect(() => {
     setStats(getCurrentStats());
     setReminderSettings(getReminderSettings());
+    setBackupStatus(getBackupStatus());
+    
+    // Check if Drive is connected
+    const token = getStoredToken();
+    setDriveConnected(token !== null && driveSettings.enabled && driveSettings.clientId);
   }, []);
 
   // Handle reminder settings change
@@ -93,6 +135,161 @@ const Settings = () => {
     const newSettings = { ...reminderSettings, [key]: value };
     setReminderSettings(newSettings);
     saveReminderSettings(newSettings);
+  };
+
+  // Handle scheduled backup settings change
+  const handleScheduledBackupSettingChange = (key, value) => {
+    const newSettings = { ...scheduledBackupSettings, [key]: value };
+    setScheduledBackupSettings(newSettings);
+    saveScheduledBackupSettings(newSettings);
+    setBackupStatus(getBackupStatus());
+  };
+
+  // Download backup now (from scheduled backup section)
+  const handleDownloadScheduledBackup = () => {
+    setIsDownloadingScheduledBackup(true);
+    setScheduledBackupResult(null);
+    
+    setTimeout(() => {
+      const result = downloadBackupNow();
+      if (result.success) {
+        setScheduledBackupResult({
+          success: true,
+          message: `Backup downloaded: ${result.filename}`
+        });
+        setBackupStatus(getBackupStatus());
+      } else {
+        setScheduledBackupResult({
+          success: false,
+          message: result.error || 'Failed to download backup'
+        });
+      }
+      setIsDownloadingScheduledBackup(false);
+      
+      // Clear result after 3 seconds
+      setTimeout(() => setScheduledBackupResult(null), 3000);
+    }, 500);
+  };
+
+  // Handle Google Drive settings change
+  const handleDriveSettingChange = (key, value) => {
+    const newSettings = { ...driveSettings, [key]: value };
+    setDriveSettings(newSettings);
+    saveDriveSettings(newSettings);
+    
+    // Update connected status
+    const token = getStoredToken();
+    setDriveConnected(token !== null && newSettings.enabled && newSettings.clientId);
+  };
+
+  // Connect to Google Drive
+  const handleConnectDrive = async () => {
+    if (!driveSettings.clientId) {
+      setDriveResult({
+        success: false,
+        message: 'Please enter your Google Client ID first'
+      });
+      setTimeout(() => setDriveResult(null), 3000);
+      return;
+    }
+
+    setIsConnectingDrive(true);
+    setDriveResult(null);
+
+    try {
+      await loadGoogleApi();
+      const result = await signInWithGoogle(driveSettings.clientId);
+      
+      // Get or create backup folder
+      const folder = await getOrCreateBackupFolder(result.accessToken);
+      
+      // Save folder info
+      const newSettings = { 
+        ...driveSettings, 
+        enabled: true,
+        folderId: folder.id, 
+        folderName: folder.name 
+      };
+      setDriveSettings(newSettings);
+      saveDriveSettings(newSettings);
+      setDriveConnected(true);
+      
+      setDriveResult({
+        success: true,
+        message: `Connected! Backups will be saved to "${folder.name}" folder`
+      });
+    } catch (error) {
+      setDriveResult({
+        success: false,
+        message: error.message || 'Failed to connect to Google Drive'
+      });
+    } finally {
+      setIsConnectingDrive(false);
+      setTimeout(() => setDriveResult(null), 5000);
+    }
+  };
+
+  // Disconnect from Google Drive
+  const handleDisconnectDrive = () => {
+    clearToken();
+    const newSettings = { ...driveSettings, enabled: false, folderId: null, folderName: null };
+    setDriveSettings(newSettings);
+    saveDriveSettings(newSettings);
+    setDriveConnected(false);
+    setDriveBackups([]);
+    setDriveResult({
+      success: true,
+      message: 'Disconnected from Google Drive'
+    });
+    setTimeout(() => setDriveResult(null), 3000);
+  };
+
+  // Upload backup to Drive now
+  const handleUploadToDrive = async () => {
+    setIsDownloadingScheduledBackup(true);
+    setScheduledBackupResult(null);
+
+    try {
+      const result = await uploadBackupToDriveNow();
+      if (result.success) {
+        setScheduledBackupResult({
+          success: true,
+          message: `Uploaded to Google Drive: ${result.fileName}`
+        });
+        setBackupStatus(getBackupStatus());
+      } else {
+        setScheduledBackupResult({
+          success: false,
+          message: result.error || 'Failed to upload to Drive'
+        });
+      }
+    } catch (error) {
+      setScheduledBackupResult({
+        success: false,
+        message: error.message || 'Failed to upload to Drive'
+      });
+    } finally {
+      setIsDownloadingScheduledBackup(false);
+      setTimeout(() => setScheduledBackupResult(null), 3000);
+    }
+  };
+
+  // Load Drive backups list
+  const handleLoadDriveBackups = async () => {
+    if (!driveConnected) return;
+    
+    setIsLoadingDriveBackups(true);
+    const token = getStoredToken();
+    
+    if (token && driveSettings.folderId) {
+      const result = await listDriveBackups(token.accessToken, driveSettings.folderId);
+      if (result.success) {
+        setDriveBackups(result.files);
+      }
+    }
+    
+    setIsLoadingDriveBackups(false);
+    setShowDriveBackupsModal(true);
   };
 
   // Handle export
@@ -634,70 +831,75 @@ const Settings = () => {
         </p>
       </div>
 
-      {/* Export Backup */}
+      {/* Backup & Data - Collapsible Section */}
       <div className={`rounded-2xl p-4 mb-4 shadow-sm ${isDark ? 'bg-slate-800' : 'bg-white'}`}>
         <h2 className={`font-semibold mb-3 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
           <span className="text-xl">💾</span>
-          Export Backup
+          Backup & Data
         </h2>
-        <p className={`text-sm mb-4 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
-          Download a complete backup of all your transactions, tags (with icons), and settings. 
-          The backup file can be used to restore your data later.
-        </p>
         
-        <button
-          onClick={handleExport}
-          disabled={isProcessing || (stats && stats.totalTransactions === 0)}
-          className="w-full flex items-center justify-center gap-2 p-3 bg-primary-600 text-white rounded-xl font-medium hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isProcessing ? (
-            <>
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              Creating Backup...
-            </>
-          ) : (
-            <>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-              Download Backup
-            </>
-          )}
-        </button>
-
-        {exportResult && (
-          <div className={`mt-3 p-3 rounded-xl ${
-            exportResult.success 
-              ? isDark ? 'bg-green-900/30 text-green-400' : 'bg-green-50 text-green-700'
-              : isDark ? 'bg-red-900/30 text-red-400' : 'bg-red-50 text-red-700'
-          }`}>
-            {exportResult.success ? (
-              <div>
-                <p className="font-medium">✅ Backup created successfully!</p>
-                <p className="text-sm mt-1">
-                  File: {exportResult.filename}<br />
-                  {exportResult.stats.totalTransactions} transactions exported
-                  {exportResult.stats.transactionsWithInvoices > 0 && 
-                    ` (${exportResult.stats.totalInvoiceImages} invoice images included)`
-                  }
-                </p>
-              </div>
-            ) : (
-              <p>❌ Export failed: {exportResult.error}</p>
-            )}
+        {/* Backup Status Summary */}
+        <div className={`p-3 rounded-xl mb-3 ${
+          backupStatus?.daysSinceBackup === null || backupStatus?.daysSinceBackup > 7
+            ? isDark ? 'bg-amber-900/30' : 'bg-amber-50'
+            : isDark ? 'bg-green-900/30' : 'bg-green-50'
+        }`}>
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">
+              {backupStatus?.daysSinceBackup === null || backupStatus?.daysSinceBackup > 7 ? '⚠️' : '✅'}
+            </span>
+            <div className="flex-1">
+              <p className={`font-medium ${
+                backupStatus?.daysSinceBackup === null || backupStatus?.daysSinceBackup > 7
+                  ? isDark ? 'text-amber-300' : 'text-amber-700'
+                  : isDark ? 'text-green-300' : 'text-green-700'
+              }`}>
+                {backupStatus?.lastDownload
+                  ? backupStatus.daysSinceBackup === 0
+                    ? 'Backup up to date'
+                    : backupStatus.daysSinceBackup === 1
+                      ? 'Last backup: Yesterday'
+                      : `Last backup: ${backupStatus.daysSinceBackup} days ago`
+                  : 'No backup yet'
+                }
+              </p>
+              <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+                {driveConnected ? '☁️ Google Drive connected' : 'Local backups only'}
+              </p>
+            </div>
           </div>
-        )}
-      </div>
+        </div>
 
-      {/* Import Backup */}
-      <div className={`rounded-2xl p-4 mb-4 shadow-sm ${isDark ? 'bg-slate-800' : 'bg-white'}`}>
-        <h2 className={`font-semibold mb-3 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <span className="text-xl">📂</span>
-          Import Backup
-        </h2>
-        <p className={`text-sm mb-4 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
-          Restore your data from a backup file. You can choose to replace all existing data or merge with current data.
-        </p>
+        {/* Quick Actions Grid */}
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          <button
+            onClick={handleExport}
+            disabled={isProcessing || (stats && stats.totalTransactions === 0)}
+            className={`flex items-center gap-2 p-3 rounded-xl transition-colors ${
+              isDark ? 'bg-slate-700 hover:bg-slate-600' : 'bg-gray-50 hover:bg-gray-100'
+            } disabled:opacity-50`}
+          >
+            <span className="text-xl">📥</span>
+            <div className="text-left">
+              <p className={`font-medium text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>Export</p>
+              <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Download backup</p>
+            </div>
+          </button>
+          
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isProcessing}
+            className={`flex items-center gap-2 p-3 rounded-xl transition-colors ${
+              isDark ? 'bg-slate-700 hover:bg-slate-600' : 'bg-gray-50 hover:bg-gray-100'
+            } disabled:opacity-50`}
+          >
+            <span className="text-xl">📤</span>
+            <div className="text-left">
+              <p className={`font-medium text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>Import</p>
+              <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Restore backup</p>
+            </div>
+          </button>
+        </div>
         
         <input
           type="file"
@@ -706,60 +908,245 @@ const Settings = () => {
           onChange={handleFileSelect}
           className="hidden"
         />
-        
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={isProcessing}
-          className={`w-full flex items-center justify-center gap-2 p-3 rounded-xl font-medium transition-colors disabled:opacity-50 ${
-            isDark 
-              ? 'bg-slate-700 text-slate-200 hover:bg-slate-600' 
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          {isProcessing ? (
-            <>
-              <div className={`w-5 h-5 border-2 border-t-transparent rounded-full animate-spin ${
-                isDark ? 'border-slate-300' : 'border-gray-600'
-              }`}></div>
-              Reading File...
-            </>
-          ) : (
-            <>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-              </svg>
-              Select Backup File
-            </>
-          )}
-        </button>
 
-        {importResult && (
-          <div className={`mt-3 p-3 rounded-xl ${
-            importResult.success 
+        {/* Export/Import Results */}
+        {(exportResult || importResult) && (
+          <div className={`p-3 rounded-xl mb-3 ${
+            (exportResult?.success || importResult?.success)
               ? isDark ? 'bg-green-900/30 text-green-400' : 'bg-green-50 text-green-700'
               : isDark ? 'bg-red-900/30 text-red-400' : 'bg-red-50 text-red-700'
           }`}>
-            {importResult.success ? (
-              <div>
-                <p className="font-medium">✅ Import successful!</p>
-                <p className="text-sm mt-1">
-                  {importResult.results.transactionsImported} transactions imported
-                  {importResult.results.transactionsSkipped > 0 && 
-                    `, ${importResult.results.transactionsSkipped} skipped (duplicates)`
-                  }
-                </p>
-                <p className="text-sm mt-1">Refreshing app...</p>
+            {exportResult?.success && <p className="text-sm">✅ Backup downloaded: {exportResult.filename}</p>}
+            {exportResult && !exportResult.success && <p className="text-sm">❌ Export failed: {exportResult.error}</p>}
+            {importResult?.success && <p className="text-sm">✅ Imported {importResult.results.transactionsImported} transactions</p>}
+            {importResult && !importResult.success && <p className="text-sm">❌ Import failed</p>}
+          </div>
+        )}
+
+        {/* Collapsible Subsections */}
+        <div className="space-y-2">
+          {/* Scheduled Backup */}
+          <div className={`rounded-xl overflow-hidden ${isDark ? 'bg-slate-700' : 'bg-gray-50'}`}>
+            <button
+              onClick={() => setExpandedSection(expandedSection === 'scheduled' ? null : 'scheduled')}
+              className={`w-full p-3 flex items-center justify-between ${isDark ? 'text-white' : 'text-gray-900'}`}
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-lg">⏰</span>
+                <div className="text-left">
+                  <p className="font-medium text-sm">Scheduled Backup</p>
+                  <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+                    {scheduledBackupSettings.enabled 
+                      ? `${formatBackupTime(scheduledBackupSettings.backupTime)} ${scheduledBackupSettings.frequency}`
+                      : 'Disabled'}
+                  </p>
+                </div>
               </div>
-            ) : (
-              <div>
-                <p className="font-medium">❌ Import failed</p>
-                {importResult.errors?.map((err, i) => (
-                  <p key={i} className="text-sm">{err}</p>
-                ))}
+              <svg className={`w-5 h-5 transition-transform ${expandedSection === 'scheduled' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            
+            {expandedSection === 'scheduled' && (
+              <div className={`px-3 pb-3 space-y-3 border-t ${isDark ? 'border-slate-600' : 'border-gray-200'}`}>
+                {/* Enable Toggle */}
+                <div className="flex items-center justify-between pt-3">
+                  <p className={`text-sm ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>Enable Reminders</p>
+                  <button
+                    onClick={() => handleScheduledBackupSettingChange('enabled', !scheduledBackupSettings.enabled)}
+                    className={`w-11 h-6 rounded-full transition-colors relative ${
+                      scheduledBackupSettings.enabled ? 'bg-primary-600' : isDark ? 'bg-slate-500' : 'bg-gray-300'
+                    }`}
+                  >
+                    <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${
+                      scheduledBackupSettings.enabled ? 'right-0.5' : 'left-0.5'
+                    }`} />
+                  </button>
+                </div>
+                
+                {/* Time & Frequency */}
+                <div className={`flex gap-2 ${!scheduledBackupSettings.enabled ? 'opacity-50' : ''}`}>
+                  <input
+                    type="time"
+                    value={scheduledBackupSettings.backupTime || '09:00'}
+                    onChange={(e) => handleScheduledBackupSettingChange('backupTime', e.target.value)}
+                    disabled={!scheduledBackupSettings.enabled}
+                    className={`flex-1 px-3 py-2 rounded-lg text-sm ${
+                      isDark ? 'bg-slate-600 text-white border-slate-500' : 'bg-white border border-gray-200'
+                    }`}
+                  />
+                  <select
+                    value={scheduledBackupSettings.frequency || 'daily'}
+                    onChange={(e) => handleScheduledBackupSettingChange('frequency', e.target.value)}
+                    disabled={!scheduledBackupSettings.enabled}
+                    className={`flex-1 px-3 py-2 rounded-lg text-sm ${
+                      isDark ? 'bg-slate-600 text-white border-slate-500' : 'bg-white border border-gray-200'
+                    }`}
+                  >
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                  </select>
+                </div>
+                
+                {/* Download Now */}
+                <button
+                  onClick={handleDownloadScheduledBackup}
+                  disabled={isDownloadingScheduledBackup}
+                  className="w-full py-2 px-3 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isDownloadingScheduledBackup ? 'Downloading...' : '📥 Download Backup Now'}
+                </button>
+                
+                {scheduledBackupResult && (
+                  <p className={`text-xs ${scheduledBackupResult.success ? 'text-green-500' : 'text-red-500'}`}>
+                    {scheduledBackupResult.success ? '✅' : '❌'} {scheduledBackupResult.message}
+                  </p>
+                )}
               </div>
             )}
           </div>
-        )}
+
+          {/* Google Drive */}
+          <div className={`rounded-xl overflow-hidden ${isDark ? 'bg-slate-700' : 'bg-gray-50'}`}>
+            <button
+              onClick={() => setExpandedSection(expandedSection === 'drive' ? null : 'drive')}
+              className={`w-full p-3 flex items-center justify-between ${isDark ? 'text-white' : 'text-gray-900'}`}
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-lg">☁️</span>
+                <div className="text-left">
+                  <p className="font-medium text-sm">Google Drive</p>
+                  <p className={`text-xs ${driveConnected ? 'text-green-500' : isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+                    {driveConnected ? `Connected • ${driveSettings.folderName}` : 'Not connected'}
+                  </p>
+                </div>
+              </div>
+              <svg className={`w-5 h-5 transition-transform ${expandedSection === 'drive' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            
+            {expandedSection === 'drive' && (
+              <div className={`px-3 pb-3 space-y-3 border-t ${isDark ? 'border-slate-600' : 'border-gray-200'}`}>
+                {/* Client ID */}
+                <div className="pt-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Google Client ID</p>
+                    {!driveConnected && (
+                      <a
+                        href="https://console.cloud.google.com/apis/credentials"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-blue-500 hover:underline"
+                      >
+                        Get ID →
+                      </a>
+                    )}
+                  </div>
+                  {driveConnected ? (
+                    // Show masked Client ID when connected
+                    <div className={`w-full px-3 py-2 rounded-lg text-xs font-mono flex items-center justify-between ${
+                      isDark ? 'bg-slate-600 text-slate-300' : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      <span>
+                        {driveSettings.clientId 
+                          ? `${driveSettings.clientId.substring(0, 8)}••••••••${driveSettings.clientId.slice(-20)}`
+                          : '••••••••'
+                        }
+                      </span>
+                      <span className="text-green-500 text-xs">✓ Connected</span>
+                    </div>
+                  ) : (
+                    <input
+                      type="text"
+                      value={driveSettings.clientId || ''}
+                      onChange={(e) => handleDriveSettingChange('clientId', e.target.value)}
+                      placeholder="xxxxx.apps.googleusercontent.com"
+                      className={`w-full px-3 py-2 rounded-lg text-xs font-mono ${
+                        isDark ? 'bg-slate-600 text-white placeholder-slate-400' : 'bg-white border border-gray-200'
+                      }`}
+                    />
+                  )}
+                </div>
+                
+                {/* Connect/Disconnect */}
+                {driveSettings.clientId && (
+                  <div className="flex gap-2">
+                    {driveConnected ? (
+                      <>
+                        <button
+                          onClick={handleLoadDriveBackups}
+                          disabled={isLoadingDriveBackups}
+                          className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium ${
+                            isDark ? 'bg-slate-600 hover:bg-slate-500 text-white' : 'bg-white border hover:bg-gray-50'
+                          }`}
+                        >
+                          {isLoadingDriveBackups ? '...' : '📁 View Backups'}
+                        </button>
+                        <button
+                          onClick={handleDisconnectDrive}
+                          className={`py-2 px-3 rounded-lg text-sm font-medium ${
+                            isDark ? 'bg-red-900/50 text-red-400' : 'bg-red-50 text-red-600'
+                          }`}
+                        >
+                          Disconnect
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={handleConnectDrive}
+                        disabled={isConnectingDrive}
+                        className="w-full py-2 px-3 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        {isConnectingDrive ? 'Connecting...' : '🔗 Connect Google Drive'}
+                      </button>
+                    )}
+                  </div>
+                )}
+                
+                {/* Auto Upload Toggle */}
+                {driveConnected && (
+                  <div className="flex items-center justify-between">
+                    <p className={`text-sm ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>Auto Upload</p>
+                    <button
+                      onClick={() => handleDriveSettingChange('autoUpload', !driveSettings.autoUpload)}
+                      className={`w-11 h-6 rounded-full transition-colors relative ${
+                        driveSettings.autoUpload ? 'bg-primary-600' : isDark ? 'bg-slate-500' : 'bg-gray-300'
+                      }`}
+                    >
+                      <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${
+                        driveSettings.autoUpload ? 'right-0.5' : 'left-0.5'
+                      }`} />
+                    </button>
+                  </div>
+                )}
+                
+                {/* Upload Now */}
+                {driveConnected && (
+                  <button
+                    onClick={handleUploadToDrive}
+                    disabled={isDownloadingScheduledBackup}
+                    className="w-full py-2 px-3 rounded-lg bg-blue-500 text-white text-sm font-medium hover:bg-blue-600 disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {isDownloadingScheduledBackup ? 'Uploading...' : '☁️ Upload to Drive Now'}
+                  </button>
+                )}
+                
+                {driveResult && (
+                  <p className={`text-xs ${driveResult.success ? 'text-green-500' : 'text-red-500'}`}>
+                    {driveResult.success ? '✅' : '❌'} {driveResult.message}
+                  </p>
+                )}
+                
+                {!driveSettings.clientId && (
+                  <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+                    💡 See USER_GUIDE.md for setup instructions
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Danger Zone */}
@@ -847,7 +1234,7 @@ const Settings = () => {
           <div>
             <h3 className="font-semibold mb-1">Daily Expense Manager</h3>
             <p className="text-sm opacity-90">
-              Version 1.1.0 - Multi-Currency Support<br />
+              Version 1.4.0 - Google Drive Backup Integration<br />
               Your data is stored locally on this device.
               Regular backups are recommended.
             </p>
@@ -988,7 +1375,71 @@ const Settings = () => {
         message="Are you sure you want to delete all transactions, tags, and settings? This action cannot be undone. Make sure you have a backup!"
       />
 
+      {/* Google Drive Backups Modal */}
+      <Modal
+        isOpen={showDriveBackupsModal}
+        onClose={() => setShowDriveBackupsModal(false)}
+        title="Google Drive Backups"
+      >
+        <div className="space-y-4">
+          <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+            Backups stored in your Google Drive "{driveSettings.folderName}" folder.
+          </p>
 
+          {driveBackups.length === 0 ? (
+            <div className={`text-center py-8 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+              <span className="text-4xl block mb-2">📭</span>
+              <p>No backups in Google Drive yet</p>
+              <p className="text-sm">Upload a backup to see it here</p>
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-80 overflow-y-auto">
+              {driveBackups.map((file) => {
+                const fileDate = new Date(file.createdTime);
+                return (
+                  <div 
+                    key={file.id}
+                    className={`p-3 rounded-xl ${isDark ? 'bg-slate-700' : 'bg-gray-50'}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">☁️</span>
+                        <div>
+                          <p className={`font-medium text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                            {file.name}
+                          </p>
+                          <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+                            {fileDate.toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                      {file.webViewLink && (
+                        <a
+                          href={file.webViewLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`p-2 rounded-lg transition-colors ${
+                            isDark ? 'hover:bg-slate-600 text-blue-400' : 'hover:bg-gray-200 text-blue-600'
+                          }`}
+                          title="Open in Drive"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+            💡 The 7 most recent backups are kept. Older backups are automatically deleted.
+          </p>
+        </div>
+      </Modal>
 
       {/* Exchange Rates Modal */}
       <Modal

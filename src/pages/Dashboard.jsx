@@ -20,16 +20,22 @@ const Dashboard = () => {
   // Check if there are multiple currencies in transactions
   const usedCurrencies = useMemo(() => getUsedCurrencies(transactions), [transactions]);
   const hasMultipleCurrencies = usedCurrencies.length > 1;
+  
+  // Check if conversion is needed (transaction currency differs from home currency)
+  const needsConversion = useMemo(() => {
+    if (hasMultipleCurrencies) return true;
+    if (usedCurrencies.length === 1 && usedCurrencies[0] !== nativeCurrency) return true;
+    return false;
+  }, [usedCurrencies, hasMultipleCurrencies, nativeCurrency]);
 
-  // Get stats with currency conversion if multiple currencies
+  // Always get stats converted to native currency for consistent display
+  // This ensures the dashboard always shows amounts in user's home currency
   const stats = useMemo(() => {
-    if (hasMultipleCurrencies) {
-      return getStats(period, nativeCurrency, exchangeRates);
-    }
-    return getStats(period);
-  }, [period, hasMultipleCurrencies, nativeCurrency, exchangeRates, transactions]);
+    return getStats(period, nativeCurrency, exchangeRates);
+  }, [period, nativeCurrency, exchangeRates, transactions]);
 
-  const displayCurrency = hasMultipleCurrencies ? nativeCurrency : null;
+  // Always display totals in native (home) currency
+  const displayCurrency = nativeCurrency;
   const recentTransactions = transactions.slice(0, 5);
 
   // Check for reminders on component mount
@@ -106,15 +112,15 @@ const Dashboard = () => {
         ))}
       </div>
 
-      {/* Multi-currency indicator */}
-      {hasMultipleCurrencies && (
+      {/* Currency conversion indicator - show when currency differs or multiple currencies */}
+      {needsConversion && (
         <div className={`mb-4 p-3 rounded-xl flex items-center gap-2 ${
           isDark ? 'bg-blue-900/30' : 'bg-blue-50'
         }`}>
           <span className="text-xl">💱</span>
           <div className="flex-1">
             <p className={`text-sm font-medium ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
-              Multi-currency mode
+              {hasMultipleCurrencies ? 'Multi-currency mode' : 'Currency conversion active'}
             </p>
             <p className={`text-xs ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
               Showing totals converted to {currencies[nativeCurrency]?.name} ({nativeCurrency})

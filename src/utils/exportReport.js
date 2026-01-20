@@ -367,4 +367,97 @@ export const generatePDFReport = (stats, dateRange, transactions, includeInvoice
   printWindow.document.close();
 };
 
-export default { exportToCSV, exportSummaryToCSV, generatePDFReport };
+/**
+ * Generate transactions CSV content (without downloading)
+ * @returns {Object} { content: string, filename: string }
+ */
+export const generateTransactionsCSV = (transactions) => {
+  if (transactions.length === 0) {
+    return { content: '', filename: '' };
+  }
+
+  const headers = [
+    'Date', 'Type', 'Description', 'Amount', 'Currency',
+    'Category', 'Payee', 'Payment Method', 'Status', 'Notes'
+  ];
+
+  const rows = transactions.map(t => [
+    t.date,
+    t.type,
+    `"${(t.description || '').replace(/"/g, '""')}"`,
+    t.amount,
+    t.currency || 'USD',
+    t.category,
+    t.payee,
+    t.paymentMethod,
+    t.status,
+    `"${(t.notes || '').replace(/"/g, '""')}"`
+  ]);
+
+  const content = [
+    headers.join(','),
+    ...rows.map(row => row.join(','))
+  ].join('\n');
+
+  const filename = `transactions_${new Date().toISOString().split('T')[0]}.csv`;
+  
+  return { content, filename };
+};
+
+/**
+ * Generate summary CSV content (without downloading)
+ * @returns {Object} { content: string, filename: string }
+ */
+export const generateSummaryCSV = (stats, dateRange, reportCurrency = null) => {
+  const currencyCode = reportCurrency || stats.currency || 'USD';
+  const currencyNote = reportCurrency ? ` (converted to ${currencyCode})` : '';
+  
+  const lines = [
+    'Expense Manager Report',
+    `Generated: ${new Date().toLocaleString()}`,
+    `Period: ${formatDate(dateRange.start)} to ${formatDate(dateRange.end)}`,
+    reportCurrency ? `Currency: All amounts converted to ${currencyCode}` : '',
+    '',
+    'SUMMARY',
+    `Total Income,${formatCurrency(stats.totalIncome, currencyCode)}`,
+    `Total Expenses,${formatCurrency(stats.totalExpenses, currencyCode)}`,
+    `Balance,${formatCurrency(stats.balance, currencyCode)}`,
+    `Total Transactions,${stats.transactionCount}`,
+    '',
+    'EXPENSES BY CATEGORY' + currencyNote,
+    'Category,Amount,Percentage'
+  ];
+
+  const categoryTotal = Object.values(stats.byCategory).reduce((sum, val) => sum + val, 0);
+  Object.entries(stats.byCategory)
+    .sort((a, b) => b[1] - a[1])
+    .forEach(([category, amount]) => {
+      const percentage = categoryTotal > 0 ? ((amount / categoryTotal) * 100).toFixed(1) : 0;
+      lines.push(`${category},${formatCurrency(amount, currencyCode)},${percentage}%`);
+    });
+
+  lines.push('');
+  lines.push('EXPENSES BY PAYMENT METHOD' + currencyNote);
+  lines.push('Payment Method,Amount,Percentage');
+
+  const paymentTotal = Object.values(stats.byPaymentMethod).reduce((sum, val) => sum + val, 0);
+  Object.entries(stats.byPaymentMethod)
+    .sort((a, b) => b[1] - a[1])
+    .forEach(([method, amount]) => {
+      const percentage = paymentTotal > 0 ? ((amount / paymentTotal) * 100).toFixed(1) : 0;
+      lines.push(`${method},${formatCurrency(amount, currencyCode)},${percentage}%`);
+    });
+
+  const content = lines.join('\n');
+  const filename = `expense_summary_${new Date().toISOString().split('T')[0]}.csv`;
+  
+  return { content, filename };
+};
+
+export default { 
+  exportToCSV, 
+  exportSummaryToCSV, 
+  generatePDFReport,
+  generateTransactionsCSV,
+  generateSummaryCSV
+};

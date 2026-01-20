@@ -5,8 +5,15 @@ import { useSettings } from '../context/SettingsContext';
 import { formatCurrency } from '../utils/storage';
 import { PieChart, BarChart, HorizontalBarChart, DonutChart } from '../components/Charts';
 import DateRangePicker from '../components/DateRangePicker';
-import { exportToCSV, exportSummaryToCSV, generatePDFReport } from '../utils/exportReport';
+import { 
+  exportToCSV, 
+  exportSummaryToCSV, 
+  generatePDFReport,
+  generateTransactionsCSV,
+  generateSummaryCSV 
+} from '../utils/exportReport';
 import { calculateStatsByCurrency, getCurrencySummary, getUsedCurrencies } from '../utils/currency';
+import { isDriveConnected, uploadFileToDrive } from '../utils/googleDrive';
 
 // Helper function to format date as YYYY-MM-DD in local timezone
 const formatDateLocal = (date) => {
@@ -84,6 +91,9 @@ const Reports = () => {
   // Check if conversion is needed (multiple currencies OR single currency different from report currency)
   const needsConversion = hasMultipleCurrencies || 
     (usedCurrencies.length === 1 && usedCurrencies[0] !== selectedReportCurrency);
+  
+  // For single currency transactions that differ from report currency, also need conversion display
+  const singleCurrencyDiffersFromReport = usedCurrencies.length === 1 && usedCurrencies[0] !== selectedReportCurrency;
 
   // Calculate statistics with currency conversion
   const stats = useMemo(() => {
@@ -192,11 +202,12 @@ const Reports = () => {
   }, [filteredTransactions, convertToNative, needsConversion, selectedReportCurrency, exchangeRates]);
 
   // Format currency for display
-  // When converting multi-currency, use selected report currency
-  // When single currency or not converting, use native currency or the single currency used
-  const displayCurrency = convertToNative && hasMultipleCurrencies 
+  // When conversion is enabled, always use selected report currency
+  // When conversion is disabled with single currency, use that currency
+  // This ensures the currency symbol matches the converted amounts
+  const displayCurrency = (convertToNative && needsConversion)
     ? selectedReportCurrency 
-    : (usedCurrencies.length === 1 ? usedCurrencies[0] : nativeCurrency);
+    : (usedCurrencies.length === 1 ? usedCurrencies[0] : selectedReportCurrency);
   
   const formatReportAmount = (amount) => {
     return formatAmount(amount, displayCurrency);
@@ -269,6 +280,69 @@ const Reports = () => {
     generatePDFReport(stats, dateRange, filteredTransactions, includeInvoices, reportCurrency);
   };
 
+  // Drive upload state
+  const [isUploadingToDrive, setIsUploadingToDrive] = useState(false);
+  const [driveUploadResult, setDriveUploadResult] = useState(null);
+  const driveConnected = isDriveConnected();
+
+  // Drive upload handlers
+  const handleUploadTransactionsToDrive = async () => {
+    if (filteredTransactions.length === 0) {
+      setDriveUploadResult({ success: false, message: 'No transactions to upload' });
+      setTimeout(() => setDriveUploadResult(null), 3000);
+      return;
+    }
+
+    setIsUploadingToDrive(true);
+    setDriveUploadResult(null);
+
+    try {
+      const { content, filename } = generateTransactionsCSV(filteredTransactions);
+      const result = await uploadFileToDrive(filename, content, 'text/csv');
+      
+      if (result.success) {
+        setDriveUploadResult({ 
+          success: true, 
+          message: `Uploaded to Drive: ${result.fileName}`,
+          link: result.webViewLink 
+        });
+      } else {
+        setDriveUploadResult({ success: false, message: result.error || 'Upload failed' });
+      }
+    } catch (error) {
+      setDriveUploadResult({ success: false, message: error.message });
+    }
+
+    setIsUploadingToDrive(false);
+    setTimeout(() => setDriveUploadResult(null), 5000);
+  };
+
+  const handleUploadSummaryToDrive = async () => {
+    setIsUploadingToDrive(true);
+    setDriveUploadResult(null);
+
+    try {
+      const reportCurrency = convertToNative && hasMultipleCurrencies ? selectedReportCurrency : null;
+      const { content, filename } = generateSummaryCSV(stats, dateRange, reportCurrency);
+      const result = await uploadFileToDrive(filename, content, 'text/csv');
+      
+      if (result.success) {
+        setDriveUploadResult({ 
+          success: true, 
+          message: `Uploaded to Drive: ${result.fileName}`,
+          link: result.webViewLink 
+        });
+      } else {
+        setDriveUploadResult({ success: false, message: result.error || 'Upload failed' });
+      }
+    } catch (error) {
+      setDriveUploadResult({ success: false, message: error.message });
+    }
+
+    setIsUploadingToDrive(false);
+    setTimeout(() => setDriveUploadResult(null), 5000);
+  };
+
   // Handle date range changes
   const handleDateChange = (type, value) => {
     setDateRange(prev => ({
@@ -309,18 +383,21 @@ const Reports = () => {
         onPresetSelect={handlePresetSelect}
       />
 
-      {/* Currency Conversion Toggle - Only show if multiple currencies */}
-      {hasMultipleCurrencies && (
+      {/* Currency Conversion Toggle - Show if multiple currencies or single currency differs from report currency */}
+      {(hasMultipleCurrencies || singleCurrencyDiffersFromReport) && (
         <div className={`rounded-2xl p-4 mb-4 shadow-sm ${isDark ? 'bg-slate-800' : 'bg-white'}`}>
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <span className="text-xl">💱</span>
               <div>
                 <p className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                  Multi-Currency Report
+                  {hasMultipleCurrencies ? 'Multi-Currency Report' : 'Currency Conversion'}
                 </p>
                 <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
-                  {usedCurrencies.length} currencies detected in this period
+                  {hasMultipleCurrencies 
+                    ? `${usedCurrencies.length} currencies detected in this period`
+                    : `Transactions in ${usedCurrencies[0]} (your home: ${nativeCurrency})`
+                  }
                 </p>
               </div>
             </div>
@@ -716,70 +793,136 @@ const Reports = () => {
       {/* Export Options */}
       <div className={`rounded-2xl p-4 mb-4 shadow-sm ${isDark ? 'bg-slate-800' : 'bg-white'}`}>
         <h2 className={`font-semibold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>📥 Export Report</h2>
-        <div className="grid grid-cols-1 gap-3">
-          <button
-            onClick={handleExportCSV}
-            className={`flex items-center justify-center gap-2 p-3 rounded-xl font-medium transition-colors ${
-              isDark 
-                ? 'bg-green-900/30 text-green-400 hover:bg-green-900/50' 
-                : 'bg-green-50 text-green-700 hover:bg-green-100'
-            }`}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            Download Transactions (CSV)
-          </button>
-          
-          <button
-            onClick={handleExportSummary}
-            className={`flex items-center justify-center gap-2 p-3 rounded-xl font-medium transition-colors ${
-              isDark 
-                ? 'bg-blue-900/30 text-blue-400 hover:bg-blue-900/50' 
-                : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
-            }`}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            Download Summary (CSV)
-          </button>
-          
-          {/* PDF Export Options */}
-          <div className={`border rounded-xl overflow-hidden ${isDark ? 'border-slate-600' : 'border-gray-200'}`}>
+        
+        {/* Download Section */}
+        <div className="space-y-2 mb-4">
+          <p className={`text-xs font-medium ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>💾 Download to Device</p>
+          <div className="grid grid-cols-2 gap-2">
             <button
-              onClick={() => handleExportPDF(false)}
-              className={`flex items-center justify-center gap-2 p-3 font-medium transition-colors w-full ${
+              onClick={handleExportCSV}
+              className={`flex items-center justify-center gap-2 p-3 rounded-xl font-medium text-sm transition-colors ${
                 isDark 
-                  ? 'bg-red-900/30 text-red-400 hover:bg-red-900/50' 
-                  : 'bg-red-50 text-red-700 hover:bg-red-100'
+                  ? 'bg-green-900/30 text-green-400 hover:bg-green-900/50' 
+                  : 'bg-green-50 text-green-700 hover:bg-green-100'
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Transactions
+            </button>
+            
+            <button
+              onClick={handleExportSummary}
+              className={`flex items-center justify-center gap-2 p-3 rounded-xl font-medium text-sm transition-colors ${
+                isDark 
+                  ? 'bg-blue-900/30 text-blue-400 hover:bg-blue-900/50' 
+                  : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Summary
+            </button>
+          </div>
+        </div>
+
+        {/* Google Drive Upload Section */}
+        {driveConnected && (
+          <div className="space-y-2 mb-4">
+            <p className={`text-xs font-medium ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>☁️ Upload to Google Drive</p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={handleUploadTransactionsToDrive}
+                disabled={isUploadingToDrive || filteredTransactions.length === 0}
+                className={`flex items-center justify-center gap-2 p-3 rounded-xl font-medium text-sm transition-colors disabled:opacity-50 ${
+                  isDark 
+                    ? 'bg-slate-700 text-white hover:bg-slate-600' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {isUploadingToDrive ? (
+                  <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                )}
+                Transactions
+              </button>
+              
+              <button
+                onClick={handleUploadSummaryToDrive}
+                disabled={isUploadingToDrive}
+                className={`flex items-center justify-center gap-2 p-3 rounded-xl font-medium text-sm transition-colors disabled:opacity-50 ${
+                  isDark 
+                    ? 'bg-slate-700 text-white hover:bg-slate-600' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {isUploadingToDrive ? (
+                  <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                )}
+                Summary
+              </button>
+            </div>
+            
+            {/* Drive Upload Result */}
+            {driveUploadResult && (
+              <div className={`p-2 rounded-lg text-xs ${
+                driveUploadResult.success 
+                  ? isDark ? 'bg-green-900/30 text-green-400' : 'bg-green-50 text-green-700'
+                  : isDark ? 'bg-red-900/30 text-red-400' : 'bg-red-50 text-red-700'
+              }`}>
+                {driveUploadResult.success ? '✅' : '❌'} {driveUploadResult.message}
+              </div>
+            )}
+          </div>
+        )}
+        
+        {/* PDF Export Options */}
+        <div className={`border rounded-xl overflow-hidden ${isDark ? 'border-slate-600' : 'border-gray-200'}`}>
+          <button
+            onClick={() => handleExportPDF(false)}
+            className={`flex items-center justify-center gap-2 p-3 font-medium transition-colors w-full ${
+              isDark 
+                ? 'bg-red-900/30 text-red-400 hover:bg-red-900/50' 
+                : 'bg-red-50 text-red-700 hover:bg-red-100'
+            }`}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            </svg>
+            Print / Save as PDF
+          </button>
+          
+          {transactionsWithInvoices > 0 && (
+            <button
+              onClick={() => handleExportPDF(true)}
+              className={`flex items-center justify-center gap-2 p-3 font-medium transition-colors w-full border-t ${
+                isDark 
+                  ? 'bg-purple-900/30 text-purple-400 hover:bg-purple-900/50 border-slate-600' 
+                  : 'bg-purple-50 text-purple-700 hover:bg-purple-100 border-gray-200'
               }`}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-              Print / Save as PDF
+              PDF with Invoices ({transactionsWithInvoices} attached)
             </button>
-            
-            {transactionsWithInvoices > 0 && (
-              <button
-                onClick={() => handleExportPDF(true)}
-                className={`flex items-center justify-center gap-2 p-3 font-medium transition-colors w-full border-t ${
-                  isDark 
-                    ? 'bg-purple-900/30 text-purple-400 hover:bg-purple-900/50 border-slate-600' 
-                    : 'bg-purple-50 text-purple-700 hover:bg-purple-100 border-gray-200'
-                }`}
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                PDF with Invoices ({transactionsWithInvoices} attached)
-              </button>
-            )}
-          </div>
+          )}
         </div>
+
         <p className={`text-xs mt-3 text-center ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
-          CSV files can be opened in Excel, Google Sheets, or any spreadsheet app
+          {driveConnected 
+            ? 'Reports uploaded to Drive are saved in "Expense_Manager_Reports" folder'
+            : 'Connect Google Drive in Settings to upload reports directly'
+          }
         </p>
       </div>
 
