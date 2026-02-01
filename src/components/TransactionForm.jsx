@@ -18,14 +18,14 @@ const formatDateForDisplay = (dateStr) => {
   });
 };
 
-const TransactionForm = ({ 
-  initialData = null, 
-  type = 'expense', 
-  onSubmit, 
+const TransactionForm = ({
+  initialData = null,
+  type = 'expense',
+  onSubmit,
   submitLabel = 'Save',
-  onCancel 
+  onCancel
 }) => {
-  const { tags, addTag } = useExpense();
+  const { tags, addTag, transactions } = useExpense();
   const { isDark, defaultCurrency, currencies } = useSettings();
   
   const [formData, setFormData] = useState({
@@ -100,15 +100,54 @@ const TransactionForm = ({
     setFormData(prev => ({ ...prev, type }));
   }, [type]);
 
+  // Function to find the most recent transaction for a given payee
+  const findLastTransactionForPayee = (payeeName) => {
+    if (!payeeName || !transactions || transactions.length === 0) return null;
+
+    // Filter transactions by payee and sort by date (most recent first)
+    const payeeTransactions = transactions
+      .filter(t => t.payee === payeeName)
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    return payeeTransactions.length > 0 ? payeeTransactions[0] : null;
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    
+
     if (value === 'custom') {
       setShowCustomInput(prev => ({ ...prev, [name]: true }));
       return;
     }
 
-    setFormData(prev => ({ ...prev, [name]: value }));
+    // Auto-fill category and payment method when payee is selected
+    if (name === 'payee' && value && !initialData) {
+      const lastTransaction = findLastTransactionForPayee(value);
+
+      if (lastTransaction) {
+        // Auto-fill from previous transaction
+        setFormData(prev => ({
+          ...prev,
+          [name]: value,
+          category: lastTransaction.category || '',
+          paymentMethod: lastTransaction.paymentMethod || ''
+        }));
+      } else {
+        // No previous transaction, set to "Other" if it exists in tags
+        const otherCategory = tags.categories.find(c => c.name.toLowerCase() === 'other');
+        const otherPaymentMethod = tags.paymentMethods.find(p => p.name.toLowerCase() === 'other');
+
+        setFormData(prev => ({
+          ...prev,
+          [name]: value,
+          category: otherCategory ? otherCategory.name : '',
+          paymentMethod: otherPaymentMethod ? otherPaymentMethod.name : ''
+        }));
+      }
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
+
     setErrors(prev => ({ ...prev, [name]: '' }));
   };
 
@@ -132,13 +171,11 @@ const TransactionForm = ({
 
   const validate = () => {
     const newErrors = {};
-    
+
     if (!formData.amount || parseFloat(formData.amount) <= 0) {
       newErrors.amount = 'Please enter a valid amount';
     }
-    if (!formData.description.trim()) {
-      newErrors.description = 'Description is required';
-    }
+    // Description is now optional - removed validation
     if (!formData.payee) {
       newErrors.payee = 'Please select a payee';
     }
@@ -152,13 +189,13 @@ const TransactionForm = ({
       newErrors.date = 'Please select a date';
     }
     // Validate reminder date is required when specific date is selected
-    if (formData.reminderType === REMINDER_TYPES.SPECIFIC_DATE && 
+    if (formData.reminderType === REMINDER_TYPES.SPECIFIC_DATE &&
         (formData.status === 'InFuture' || formData.status === 'Pending') &&
         !formData.reminderDate) {
       newErrors.reminderDate = 'Please select a reminder date';
     }
     // Validate reminder value when custom duration is selected
-    if (formData.reminderType === REMINDER_TYPES.CUSTOM_DURATION && 
+    if (formData.reminderType === REMINDER_TYPES.CUSTOM_DURATION &&
         (formData.status === 'InFuture' || formData.status === 'Pending') &&
         (!formData.reminderValue || parseInt(formData.reminderValue) < 1)) {
       newErrors.reminderValue = 'Please enter a valid number';
@@ -349,7 +386,7 @@ const TransactionForm = ({
 
       {/* Description */}
       <div>
-        <label className={labelClasses}>Description *</label>
+        <label className={labelClasses}>Description (Optional)</label>
         <input
           type="text"
           name="description"
