@@ -55,11 +55,14 @@ The main screen shows:
 2. Select **Expense** or **Income**
 3. Fill in the details:
    - **Amount** - Use the calculator button for quick math
-   - **Description** - What was it for?
+   - **Description** - Optional, describe what it was for
    - **Date** - Defaults to today, change for past/future dates
+   - **Time** - Defaults to current time, helps track sequence
    - **Payee** - Who you paid/received from
-   - **Category** - Food, Transport, etc.
-   - **Payment Method** - Cash, Card, etc.
+     - 💡 **Smart Auto-fill**: When you select a payee, the app automatically fills in category and payment method based on your previous transactions with that payee!
+     - For new payees, defaults to "Other" category and payment method
+   - **Category** - Food, Transport, etc. (auto-filled for known payees)
+   - **Payment Method** - Cash, Card, etc. (auto-filled for known payees)
    - **Status** - Done, Pending, or InFuture
 
 4. **For future payments**, you can set reminders:
@@ -77,6 +80,11 @@ Access from the bottom navigation → **"History"**
 
 - **Search** transactions by description or payee
 - **Filter** by type, category, payment method, status, or date range
+- **Sorted by date and time** - Most recent transactions appear first
+- **Pagination** - Shows 20 transactions per page for better performance
+  - Navigate between pages using Previous/Next buttons
+  - Smart page numbers with ellipsis for large transaction lists
+  - Shows current page and total pages
 - **Edit** or **Delete** any transaction
 - View attached **invoice images**
 
@@ -471,6 +479,23 @@ Found a bug or have an idea for a new feature? You can report it directly from t
 ---
 
 ## 📝 Version History
+
+**v1.5.0** - Smart Auto-fill & Enhanced Transaction Management
+- 🎯 **Smart Auto-fill**: Category and payment method auto-fill based on previous transactions with the same payee
+  - Saves time by remembering your transaction patterns
+  - Defaults to "Other" for new payees
+- ⏰ **Time Tracking**: Added time field to transactions
+  - Defaults to current time when adding
+  - Helps track exact sequence of transactions
+  - Displays alongside date in transaction cards
+- 📋 **Transaction Sorting**: Transactions now sorted by date AND time
+  - Most recent transactions appear first
+  - Same-day transactions ordered by time
+- 📄 **Pagination**: All Transactions page now shows 20 items per page
+  - Improved performance for large transaction lists
+  - Smart page navigation with Previous/Next buttons
+  - Page numbers with ellipsis for easy navigation
+- ✏️ **Optional Description**: Description field is now optional when adding transactions
 
 **v1.4.0** - Google Drive Backup Integration
 - ☁️ **Google Drive Backup**: Automatically upload backups to Google Drive!

@@ -75,7 +75,7 @@ Expense_Manager/
 │   │   └── Help.jsx           # Help & FAQ page
 │   │
 │   ├── utils/                 # Utility functions
-│   │   ├── storage.js         # LocalStorage helpers
+│   │   ├── storage.js         # LocalStorage helpers, sorting, date/time utilities
 │   │   ├── backup.js          # Backup/restore utilities
 │   │   ├── currency.js        # Currency conversion & formatting
 │   │   ├── exportReport.js    # PDF/CSV export
@@ -266,6 +266,37 @@ const {
 
 ---
 
+## Key Features
+
+### Smart Auto-fill
+
+When adding a transaction, selecting a payee automatically fills in:
+- **Category** - From the most recent transaction with that payee
+- **Payment Method** - From the most recent transaction with that payee
+- Defaults to "Other" for new payees with no transaction history
+
+### Transaction Sorting
+
+Transactions are sorted by:
+1. **Date** (most recent first)
+2. **Time** (most recent first for same-day transactions)
+
+Implemented in `storage.js`:
+```javascript
+sortTransactionsByDateTime(transactions)
+// Returns sorted array without mutating original
+```
+
+### Pagination
+
+Transaction list shows 20 items per page with:
+- Previous/Next navigation
+- Smart page number display with ellipsis
+- Auto-scroll to top on page change
+- Auto-reset to page 1 when filters change
+
+---
+
 ## Data Storage
 
 ### LocalStorage Keys
@@ -279,6 +310,22 @@ const {
 | `expense_manager_exchange_rates` | Exchange rates cache |
 | `expense_manager_reminder_settings` | Reminder preferences |
 
+### Storage Utility Functions
+
+```javascript
+// Date & Time
+getTodayForInput()           // Returns: "2024-01-15"
+getCurrentTimeForInput()     // Returns: "14:30"
+
+// Sorting
+sortTransactionsByDateTime(transactions)  // Sorts by date then time (desc)
+groupByDate(transactions)                 // Groups and sorts by date
+
+// Formatting
+formatDate(dateString)                    // Returns: "Jan 15, 2024"
+formatCurrency(amount, currency)          // Returns: "$100.00"
+```
+
 ### Transaction Schema
 
 ```javascript
@@ -287,8 +334,9 @@ const {
   type: "expense" | "income",
   amount: "100.00",
   currency: "USD",
-  description: "Grocery shopping",
+  description: "Grocery shopping",  // Optional field
   date: "2024-01-15",
+  time: "14:30",                     // HH:MM format, defaults to current time
   payee: "Walmart",
   category: "Food",
   paymentMethod: "Credit Card",
@@ -298,7 +346,8 @@ const {
   reminderType: "custom_duration",
   reminderValue: "3",
   reminderUnit: "days",
-  createdAt: "2024-01-15T10:30:00.000Z"
+  createdAt: "2024-01-15T10:30:00.000Z",
+  updatedAt: "2024-01-15T10:30:00.000Z"
 }
 ```
 
@@ -432,11 +481,16 @@ const MyComponent = ({ data }) => {
 Currently no automated tests. Manual testing recommended for:
 
 1. Transaction CRUD operations
+   - Description field is optional
+   - Time field auto-fills with current time
+   - Auto-fill works for known payees
 2. Multi-currency conversion
-3. Dark mode across all pages
-4. PWA installation on iOS/Android
-5. Backup/restore functionality
-6. Offline functionality
+3. Transaction sorting by date and time
+4. Pagination (20 items per page)
+5. Dark mode across all pages
+6. PWA installation on iOS/Android
+7. Backup/restore functionality
+8. Offline functionality
 
 ---
 
