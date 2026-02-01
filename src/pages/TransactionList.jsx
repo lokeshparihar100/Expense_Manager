@@ -4,7 +4,7 @@ import { useExpense } from '../context/ExpenseContext';
 import { useSettings } from '../context/SettingsContext';
 import TransactionCard from '../components/TransactionCard';
 import { ConfirmModal } from '../components/Modal';
-import { formatDate } from '../utils/storage';
+import { formatDate, sortTransactionsByDateTime } from '../utils/storage';
 import { getUsedCurrencies } from '../utils/currency';
 
 const TransactionList = () => {
@@ -30,9 +30,9 @@ const TransactionList = () => {
   // Get currencies used in transactions
   const usedCurrencies = useMemo(() => getUsedCurrencies(transactions), [transactions]);
 
-  // Filter transactions
+  // Filter and sort transactions
   const filteredTransactions = useMemo(() => {
-    return transactions.filter(t => {
+    const filtered = transactions.filter(t => {
       if (filters.type !== 'all' && t.type !== filters.type) return false;
       if (filters.category !== 'all' && t.category !== filters.category) return false;
       if (filters.paymentMethod !== 'all' && t.paymentMethod !== filters.paymentMethod) return false;
@@ -44,6 +44,8 @@ const TransactionList = () => {
       if (filters.endDate && new Date(t.date) > new Date(filters.endDate)) return false;
       return true;
     });
+    // Sort by date and time (most recent first)
+    return sortTransactionsByDateTime(filtered);
   }, [transactions, filters]);
 
   // Group by date

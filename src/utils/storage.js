@@ -182,6 +182,25 @@ export const filterByDateRange = (transactions, startDate, endDate) => {
   });
 };
 
+// Sort transactions by date and time (most recent first)
+export const sortTransactionsByDateTime = (transactions) => {
+  return [...transactions].sort((a, b) => {
+    // Compare dates first
+    const dateA = new Date(a.date);
+    const dateB = new Date(b.date);
+
+    if (dateA.getTime() !== dateB.getTime()) {
+      return dateB.getTime() - dateA.getTime(); // Most recent date first
+    }
+
+    // If dates are the same, compare times
+    const timeA = a.time || '00:00';
+    const timeB = b.time || '00:00';
+
+    return timeB.localeCompare(timeA); // Most recent time first
+  });
+};
+
 // Group transactions by date
 export const groupByDate = (transactions) => {
   const grouped = {};
@@ -192,6 +211,16 @@ export const groupByDate = (transactions) => {
     }
     grouped[date].push(t);
   });
+
+  // Sort transactions within each date group by time (most recent first)
+  Object.keys(grouped).forEach(date => {
+    grouped[date].sort((a, b) => {
+      const timeA = a.time || '00:00';
+      const timeB = b.time || '00:00';
+      return timeB.localeCompare(timeA);
+    });
+  });
+
   return grouped;
 };
 
