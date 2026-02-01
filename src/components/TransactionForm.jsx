@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useExpense } from '../context/ExpenseContext';
 import { useSettings } from '../context/SettingsContext';
-import { getTodayForInput } from '../utils/storage';
+import { getTodayForInput, getCurrentTimeForInput } from '../utils/storage';
 import ImageUpload from './ImageUpload';
 import { suggestIconForText } from './IconPicker';
 import Calculator from './Calculator';
@@ -38,6 +38,7 @@ const TransactionForm = ({
     paymentMethod: '',
     status: 'Done',
     date: getTodayForInput(),
+    time: getCurrentTimeForInput(),
     notes: '',
     invoiceImages: [],
     // Reminder fields
@@ -85,6 +86,7 @@ const TransactionForm = ({
       setFormData({
         ...initialData,
         date: initialData.date || getTodayForInput(),
+        time: initialData.time || getCurrentTimeForInput(),
         currency: initialData.currency || defaultCurrency,
         invoiceImages: initialData.invoiceImages || [],
         // Handle both old and new reminder format
@@ -398,17 +400,29 @@ const TransactionForm = ({
         {errors.description && <p className={errorClasses}>{errors.description}</p>}
       </div>
 
-      {/* Date */}
-      <div>
-        <label className={labelClasses}>Date *</label>
-        <input
-          type="date"
-          name="date"
-          value={formData.date}
-          onChange={handleChange}
-          className={inputClasses}
-        />
-        {errors.date && <p className={errorClasses}>{errors.date}</p>}
+      {/* Date and Time */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelClasses}>Date *</label>
+          <input
+            type="date"
+            name="date"
+            value={formData.date}
+            onChange={handleChange}
+            className={inputClasses}
+          />
+          {errors.date && <p className={errorClasses}>{errors.date}</p>}
+        </div>
+        <div>
+          <label className={labelClasses}>Time *</label>
+          <input
+            type="time"
+            name="time"
+            value={formData.time}
+            onChange={handleChange}
+            className={inputClasses}
+          />
+        </div>
       </div>
 
       {/* Payee */}

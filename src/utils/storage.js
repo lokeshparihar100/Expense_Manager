@@ -154,6 +154,14 @@ export const getTodayForInput = () => {
   return `${year}-${month}-${day}`;
 };
 
+// Get current time formatted for input (HH:MM in local timezone)
+export const getCurrentTimeForInput = () => {
+  const now = new Date();
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
+};
+
 // Calculate totals
 export const calculateTotals = (transactions) => {
   return transactions.reduce((acc, t) => {
