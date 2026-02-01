@@ -11,7 +11,7 @@ const healthCheckPlugin = () => ({
       res.end(JSON.stringify({
         status: 'ok',
         app: 'Daily Expense Manager',
-        version: '1.4.0',
+        version: '1.5.0',
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
         environment: process.env.NODE_ENV || 'development'

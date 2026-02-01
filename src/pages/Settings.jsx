@@ -1234,7 +1234,7 @@ const Settings = () => {
           <div>
             <h3 className="font-semibold mb-1">Daily Expense Manager</h3>
             <p className="text-sm opacity-90">
-              Version 1.4.0 - Google Drive Backup Integration<br />
+              Version 1.5.0 - Smart Auto-fill & Enhanced Transaction Management<br />
               Your data is stored locally on this device.
               Regular backups are recommended.
             </p>

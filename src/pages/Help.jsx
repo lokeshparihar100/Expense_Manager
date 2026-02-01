@@ -32,7 +32,7 @@ const getDeviceInfo = () => {
     os,
     isStandalone,
     screenSize: `${window.screen.width}x${window.screen.height}`,
-    appVersion: '1.4.0'
+    appVersion: '1.5.0'
   };
 };
 
@@ -595,7 +595,7 @@ ${bugReport.severity}
           </div>
           <div>
             <h3 className="font-bold">Daily Expense Manager</h3>
-            <p className="text-sm opacity-90">Version 1.4.0</p>
+            <p className="text-sm opacity-90">Version 1.5.0</p>
           </div>
         </div>
         <p className="text-sm opacity-90 mb-3">
