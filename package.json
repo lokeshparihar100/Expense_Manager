@@ -1,6 +1,6 @@
 {
   "name": "expense_manager",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "A modern, privacy-first expense tracking PWA with multi-currency support",
   "type": "module",
   "scripts": {

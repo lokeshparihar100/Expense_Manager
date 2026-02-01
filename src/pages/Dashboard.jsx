@@ -8,6 +8,7 @@ import { ConfirmModal } from '../components/Modal';
 import ReminderModal from '../components/ReminderModal';
 import { getUpcomingReminders, dismissForSession, getReminderSettings } from '../utils/reminders';
 import { getUsedCurrencies } from '../utils/currency';
+import { sortTransactionsByDateTime } from '../utils/storage';
 
 const Dashboard = () => {
   const { transactions, updateTransaction, deleteTransaction, getStats, isLoading } = useExpense();
@@ -36,7 +37,7 @@ const Dashboard = () => {
 
   // Always display totals in native (home) currency
   const displayCurrency = nativeCurrency;
-  const recentTransactions = transactions.slice(0, 5);
+  const recentTransactions = sortTransactionsByDateTime(transactions).slice(0, 5);
 
   // Check for reminders on component mount
   useEffect(() => {

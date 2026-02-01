@@ -1,10 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExpense } from '../context/ExpenseContext';
 import { useSettings } from '../context/SettingsContext';
 import TransactionCard from '../components/TransactionCard';
 import { ConfirmModal } from '../components/Modal';
-import { formatDate } from '../utils/storage';
+import { formatDate, sortTransactionsByDateTime } from '../utils/storage';
 import { getUsedCurrencies } from '../utils/currency';
 
 const TransactionList = () => {
@@ -12,7 +12,11 @@ const TransactionList = () => {
   const { transactions, tags, deleteTransaction } = useExpense();
   const { isDark, currencies } = useSettings();
   const [deleteId, setDeleteId] = useState(null);
-  
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
+
   // Filters
   const [filters, setFilters] = useState({
     type: 'all',
@@ -30,9 +34,9 @@ const TransactionList = () => {
   // Get currencies used in transactions
   const usedCurrencies = useMemo(() => getUsedCurrencies(transactions), [transactions]);
 
-  // Filter transactions
+  // Filter and sort transactions
   const filteredTransactions = useMemo(() => {
-    return transactions.filter(t => {
+    const filtered = transactions.filter(t => {
       if (filters.type !== 'all' && t.type !== filters.type) return false;
       if (filters.category !== 'all' && t.category !== filters.category) return false;
       if (filters.paymentMethod !== 'all' && t.paymentMethod !== filters.paymentMethod) return false;
@@ -44,12 +48,25 @@ const TransactionList = () => {
       if (filters.endDate && new Date(t.date) > new Date(filters.endDate)) return false;
       return true;
     });
+    // Sort by date and time (most recent first)
+    return sortTransactionsByDateTime(filtered);
   }, [transactions, filters]);
 
-  // Group by date
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters]);
+
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedTransactions = filteredTransactions.slice(startIndex, endIndex);
+
+  // Group by date (paginated transactions)
   const groupedTransactions = useMemo(() => {
     const groups = {};
-    filteredTransactions.forEach(t => {
+    paginatedTransactions.forEach(t => {
       const date = formatDate(t.date);
       if (!groups[date]) {
         groups[date] = [];
@@ -57,7 +74,7 @@ const TransactionList = () => {
       groups[date].push(t);
     });
     return groups;
-  }, [filteredTransactions]);
+  }, [paginatedTransactions]);
 
   const handleDelete = (id) => {
     setDeleteId(id);
@@ -85,6 +102,11 @@ const TransactionList = () => {
       startDate: '',
       endDate: ''
     });
+  };
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const hasActiveFilters = Object.entries(filters).some(([key, value]) => {
@@ -282,9 +304,21 @@ const TransactionList = () => {
         </div>
       )}
 
-      {/* Results Count */}
-      <div className={`mb-4 text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
-        {filteredTransactions.length} transaction{filteredTransactions.length !== 1 ? 's' : ''} found
+      {/* Results Count and Pagination Info */}
+      <div className={`mb-4 flex items-center justify-between ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+        <div className="text-sm">
+          {filteredTransactions.length} transaction{filteredTransactions.length !== 1 ? 's' : ''} found
+          {totalPages > 1 && (
+            <span className="ml-2">
+              (Page {currentPage} of {totalPages})
+            </span>
+          )}
+        </div>
+        {totalPages > 1 && (
+          <div className="text-sm">
+            Showing {startIndex + 1}-{Math.min(endIndex, filteredTransactions.length)} of {filteredTransactions.length}
+          </div>
+        )}
       </div>
 
       {/* Transaction List */}
@@ -306,18 +340,92 @@ const TransactionList = () => {
           )}
         </div>
       ) : (
-        Object.entries(groupedTransactions).map(([date, txns]) => (
-          <div key={date} className="mb-4">
-            <h3 className={`text-sm font-medium mb-2 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>{date}</h3>
-            {txns.map((transaction) => (
-              <TransactionCard
-                key={transaction.id}
-                transaction={transaction}
-                onDelete={handleDelete}
-              />
-            ))}
-          </div>
-        ))
+        <>
+          {Object.entries(groupedTransactions).map(([date, txns]) => (
+            <div key={date} className="mb-4">
+              <h3 className={`text-sm font-medium mb-2 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>{date}</h3>
+              {txns.map((transaction) => (
+                <TransactionCard
+                  key={transaction.id}
+                  transaction={transaction}
+                  onDelete={handleDelete}
+                />
+              ))}
+            </div>
+          ))}
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className={`flex items-center justify-center gap-2 mt-6 mb-4 ${isDark ? 'text-slate-300' : 'text-gray-700'}`}>
+              {/* Previous Button */}
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  currentPage === 1
+                    ? isDark ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : isDark ? 'bg-slate-700 text-white hover:bg-slate-600' : 'bg-white border border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                Previous
+              </button>
+
+              {/* Page Numbers */}
+              <div className="flex gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                  // Show first page, last page, current page, and pages around current
+                  const showPage =
+                    page === 1 ||
+                    page === totalPages ||
+                    (page >= currentPage - 1 && page <= currentPage + 1);
+
+                  const showEllipsis =
+                    (page === currentPage - 2 && currentPage > 3) ||
+                    (page === currentPage + 2 && currentPage < totalPages - 2);
+
+                  if (showEllipsis) {
+                    return (
+                      <span key={page} className="px-3 py-2">
+                        ...
+                      </span>
+                    );
+                  }
+
+                  if (!showPage) return null;
+
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => handlePageChange(page)}
+                      className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                        page === currentPage
+                          ? 'bg-primary-500 text-white'
+                          : isDark
+                            ? 'bg-slate-700 text-white hover:bg-slate-600'
+                            : 'bg-white border border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Next Button */}
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  currentPage === totalPages
+                    ? isDark ? 'bg-slate-700 text-slate-500 cursor-not-allowed' : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : isDark ? 'bg-slate-700 text-white hover:bg-slate-600' : 'bg-white border border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       {/* Delete Confirmation Modal */}

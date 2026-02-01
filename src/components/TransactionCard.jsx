@@ -80,6 +80,11 @@ const TransactionCard = ({ transaction, onDelete }) => {
           )}
           <p className={`text-xs ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>
             {formatDate(transaction.date)}
+            {transaction.time && (
+              <span className="ml-1">
+                {transaction.time}
+              </span>
+            )}
           </p>
         </div>
       </div>
