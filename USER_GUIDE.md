@@ -292,6 +292,96 @@ The backup reminder popup appears when ALL of these conditions are met:
 - The backup file is a JSON file that can be imported back using Settings → Import Backup
 - Check browser console (F12 → Console) for "[Backup]" logs if troubleshooting
 
+#### 🔐 PIN Security
+
+Protect your financial data with an optional 4-digit PIN! When enabled, you'll need to enter your PIN every time you open the app.
+
+**Features:**
+- **Optional Setup**: Set up during first launch or skip and enable later from Settings
+- **4-Digit PIN**: Simple numeric PIN for quick access
+- **App Lock**: PIN required on every app launch when enabled
+- **PIN Management**: Change or remove your PIN anytime from Settings
+- **Mobile-Friendly**: Numeric keyboard optimized for quick entry
+- **Security Features**:
+  - Auto-verify when 4 digits are entered
+  - Shake animation on incorrect PIN
+  - Attempt counter with help message after 3 failed attempts
+  - PIN is securely hashed before storage
+
+**First-Time Setup:**
+
+When you open the app for the first time, you'll see a PIN setup screen:
+1. **Set Up PIN**: Choose this to create a 4-digit PIN
+   - Enter your desired 4-digit PIN
+   - Confirm by entering it again
+   - Your app is now protected!
+2. **Skip for Now**: Choose this to use the app without PIN protection
+   - You can always enable it later from Settings
+
+**Enabling PIN Later:**
+
+If you skipped initial setup or want to add PIN protection:
+1. Go to **More** → **Settings**
+2. Scroll to the **Security** section
+3. Find **PIN Protection** (shows "Inactive" if no PIN set)
+4. Tap **"Set PIN"**
+5. Enter a 4-digit PIN
+6. Confirm by entering it again
+7. PIN is now active!
+
+**Changing Your PIN:**
+
+If you want to change your existing PIN:
+1. Go to **More** → **Settings** → **Security**
+2. Tap **"Change PIN"**
+3. Enter your current PIN
+4. Enter your new 4-digit PIN
+5. Confirm the new PIN
+6. PIN successfully changed!
+
+**Removing PIN:**
+
+To disable PIN protection:
+1. Go to **More** → **Settings** → **Security**
+2. Tap **"Remove PIN"** (red button)
+3. Read the warning: "Removing PIN will disable security protection"
+4. Enter your current PIN to confirm
+5. PIN protection is now disabled
+
+**How It Works:**
+
+- **On App Launch**: When PIN is enabled, you'll see the lock screen
+- **Enter PIN**: Type your 4-digit PIN (or tap the digits)
+- **Auto-Unlock**: App automatically unlocks when you enter 4 digits
+- **Wrong PIN**: Screen shakes and PIN field clears
+- **After 3 Failed Attempts**: Shows help message about clearing browser data to reset
+
+**Important Notes:**
+
+- Your PIN is stored **securely hashed** in browser localStorage
+- If you forget your PIN, you'll need to **clear browser data** to reset the app
+  - On Chrome: Settings → Privacy → Clear browsing data → Cookies and site data
+  - On Safari: Settings → Safari → Clear History and Website Data
+  - ⚠️ **Warning**: Clearing data will delete all your transactions! Export a backup first if possible.
+- PIN is stored locally - it never leaves your device
+- Each browser/device has its own PIN (if you use multiple browsers)
+- The PIN feature is designed for basic privacy, not military-grade security
+
+**Security Best Practices:**
+
+- Choose a PIN that's not easily guessable (avoid 1234, 0000, etc.)
+- Don't share your PIN with others
+- Regularly export backups (Settings → Backup & Restore)
+- Store backups securely (Google Drive, Dropbox, or email to yourself)
+- If you suspect someone knows your PIN, change it immediately
+
+**Troubleshooting:**
+
+- **Forgot PIN?** You'll need to clear browser data (see Important Notes above)
+- **PIN not being asked?** Check Settings → Security to ensure PIN is "Active"
+- **Auto-unlock not working?** Make sure you're entering exactly 4 digits
+- **PIN setup screen appearing again?** Browser data may have been cleared
+
 #### ☁️ Google Drive Backup (Cloud Storage)
 
 Automatically upload backups directly to your Google Drive! When enabled, scheduled backups 
@@ -451,6 +541,12 @@ If you want anyone to use the app (not just test users):
 - Access them anytime from the transaction details
 - Images are stored locally (included in backups)
 
+### PIN Protection
+- Enable PIN security for an extra layer of protection
+- Perfect for shared devices or public spaces
+- Remember to export a backup before setting up PIN (in case you forget it)
+- Change your PIN regularly for better security
+
 ### Regular Backups
 - Regularly export backups from Settings
 - Backups include all accounts, transactions, tags, and images
@@ -549,6 +645,32 @@ Found a bug or have an idea for a new feature? You can report it directly from t
 ---
 
 ## 📝 Version History
+
+**v1.7.0** - Optional PIN Security
+- 🔐 **PIN Security Feature**: Optional 4-digit PIN protection for your financial data
+  - First-time setup screen with option to skip
+  - PIN entry required on app launch when enabled
+  - Change or remove PIN anytime from Settings
+  - Secure PIN hashing for local storage
+  - Auto-verify when 4 digits entered
+  - Shake animation on incorrect PIN
+  - Attempt counter with help after 3 failed attempts
+  - Full dark mode support for all PIN screens
+  - Mobile-friendly numeric keyboard
+- 🎨 **Security Section in Settings**:
+  - New dedicated Security section
+  - PIN Manager component with status indicator
+  - Set/Change/Remove PIN modals
+  - Active/Inactive status display
+- 🔒 **Enhanced Privacy**:
+  - PIN stored as secure hash in localStorage
+  - Optional security layer on top of local storage
+  - Perfect for shared devices or public use
+- 📚 **Documentation Updates**:
+  - Comprehensive PIN security guide
+  - Security best practices
+  - Troubleshooting for forgotten PIN
+  - Tips for secure PIN management
 
 **v1.6.0** - Multi-Account Support & Copy Transactions
 - 👥 **Multi-Account Support**: Manage separate accounts for different purposes

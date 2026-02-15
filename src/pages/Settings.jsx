@@ -1291,7 +1291,7 @@ const Settings = () => {
           <div className="flex-1">
             <h3 className="font-semibold mb-1">Daily Expense Manager</h3>
             <p className="text-sm opacity-90">
-              Version 1.6.0 - Multi-Account Support & Copy Transactions<br />
+              Version 1.7.0 - Optional PIN Security<br />
               Your data is stored locally on this device.
               Regular backups are recommended.
             </p>

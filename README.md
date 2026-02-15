@@ -21,6 +21,7 @@
 - 👥 **Multi-Account Support** - Manage multiple accounts (personal, business, family) with separate transactions
 - 📊 **Track Expenses & Income** - Record all transactions with categories, payees, and payment methods
 - 📋 **Copy Transactions** - Quickly duplicate existing transactions with today's date
+- 🔐 **PIN Security** - Optional 4-digit PIN protection to secure your financial data
 - 💱 **Multi-Currency Support** - Perfect for travelers with live exchange rates
 - 📸 **Invoice Attachments** - Attach up to 5 receipt images per transaction
 - 📈 **Visual Reports** - Beautiful charts and graphs with date filtering
