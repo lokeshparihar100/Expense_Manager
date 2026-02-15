@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useExpense } from '../context/ExpenseContext';
 import { useSettings } from '../context/SettingsContext';
+import { useAccount } from '../context/AccountContext';
 import StatCard from '../components/StatCard';
 import TransactionCard from '../components/TransactionCard';
 import { ConfirmModal } from '../components/Modal';
@@ -13,15 +14,21 @@ import { sortTransactionsByDateTime } from '../utils/storage';
 const Dashboard = () => {
   const { transactions, updateTransaction, deleteTransaction, getStats, isLoading } = useExpense();
   const { isDark, nativeCurrency, exchangeRates, currencies } = useSettings();
+  const { activeAccountId } = useAccount();
   const [deleteId, setDeleteId] = useState(null);
   const [period, setPeriod] = useState('month');
   const [showReminders, setShowReminders] = useState(false);
   const [upcomingReminders, setUpcomingReminders] = useState([]);
 
+  // Filter transactions by active account
+  const accountTransactions = useMemo(() => {
+    return transactions.filter(t => t.accountId === activeAccountId);
+  }, [transactions, activeAccountId]);
+
   // Check if there are multiple currencies in transactions
-  const usedCurrencies = useMemo(() => getUsedCurrencies(transactions), [transactions]);
+  const usedCurrencies = useMemo(() => getUsedCurrencies(accountTransactions), [accountTransactions]);
   const hasMultipleCurrencies = usedCurrencies.length > 1;
-  
+
   // Check if conversion is needed (transaction currency differs from home currency)
   const needsConversion = useMemo(() => {
     if (hasMultipleCurrencies) return true;
@@ -32,19 +39,19 @@ const Dashboard = () => {
   // Always get stats converted to native currency for consistent display
   // This ensures the dashboard always shows amounts in user's home currency
   const stats = useMemo(() => {
-    return getStats(period, nativeCurrency, exchangeRates);
-  }, [period, nativeCurrency, exchangeRates, transactions]);
+    return getStats(period, nativeCurrency, exchangeRates, activeAccountId);
+  }, [period, nativeCurrency, exchangeRates, activeAccountId, getStats]);
 
   // Always display totals in native (home) currency
   const displayCurrency = nativeCurrency;
-  const recentTransactions = sortTransactionsByDateTime(transactions).slice(0, 5);
+  const recentTransactions = sortTransactionsByDateTime(accountTransactions).slice(0, 5);
 
   // Check for reminders on component mount
   useEffect(() => {
-    if (!isLoading && transactions.length > 0) {
+    if (!isLoading && accountTransactions.length > 0) {
       const settings = getReminderSettings();
       if (settings.enabled && settings.showOnStartup) {
-        const reminders = getUpcomingReminders(transactions, settings);
+        const reminders = getUpcomingReminders(accountTransactions, settings);
         if (reminders.length > 0) {
           setUpcomingReminders(reminders);
           // Small delay to let the page render first
@@ -52,7 +59,7 @@ const Dashboard = () => {
         }
       }
     }
-  }, [isLoading, transactions]);
+  }, [isLoading, accountTransactions]);
 
   const handleDelete = (id) => {
     setDeleteId(id);
@@ -78,7 +85,7 @@ const Dashboard = () => {
   };
 
   // Get reminder count for badge
-  const reminderCount = getUpcomingReminders(transactions).length;
+  const reminderCount = getUpcomingReminders(accountTransactions).length;
 
   if (isLoading) {
     return (

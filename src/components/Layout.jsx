@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useSettings } from '../context/SettingsContext';
+import AccountSelector from './AccountSelector';
 
 const Layout = ({ children }) => {
   const location = useLocation();
@@ -100,8 +101,11 @@ const Layout = ({ children }) => {
           <h1 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
             💰 Expense Manager
           </h1>
-          
+
           <div className="flex items-center gap-2">
+            {/* Account Selector */}
+            <AccountSelector />
+
             {/* Hide/Show Amounts Toggle */}
             <button
               onClick={toggleAmounts}

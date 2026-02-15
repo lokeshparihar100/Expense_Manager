@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExpense } from '../context/ExpenseContext';
 import { useSettings } from '../context/SettingsContext';
+import { useAccount } from '../context/AccountContext';
 import { formatCurrency } from '../utils/storage';
 import { PieChart, BarChart, HorizontalBarChart, DonutChart } from '../components/Charts';
 import DateRangePicker from '../components/DateRangePicker';
@@ -26,11 +27,17 @@ const formatDateLocal = (date) => {
 const Reports = () => {
   const navigate = useNavigate();
   const { transactions } = useExpense();
-  const { 
+  const { activeAccountId } = useAccount();
+  const {
     nativeCurrency, reportCurrency, setReportCurrency,
     exchangeRates, currencies, formatAmount, isDark
   } = useSettings();
-  
+
+  // Filter transactions by active account
+  const accountTransactions = useMemo(() => {
+    return transactions.filter(t => t.accountId === activeAccountId);
+  }, [transactions, activeAccountId]);
+
   // Date range state
   const [dateRange, setDateRange] = useState(() => {
     const today = new Date();
@@ -45,14 +52,14 @@ const Reports = () => {
   // Chart type toggles
   const [categoryChartType, setCategoryChartType] = useState('pie');
   const [paymentChartType, setPaymentChartType] = useState('bar');
-  
+
   // Currency conversion toggle
   const [convertToNative, setConvertToNative] = useState(true);
   const [selectedReportCurrency, setSelectedReportCurrency] = useState(nativeCurrency);
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
   const [currencySearch, setCurrencySearch] = useState('');
   const currencyPickerRef = useRef(null);
-  
+
   // Close currency picker when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -61,19 +68,19 @@ const Reports = () => {
         setCurrencySearch('');
       }
     };
-    
+
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   // Filter transactions by date range
   const filteredTransactions = useMemo(() => {
-    return transactions.filter(t => {
+    return accountTransactions.filter(t => {
       // Compare dates as strings (YYYY-MM-DD format) to avoid timezone issues
       const txDate = t.date; // Already in YYYY-MM-DD format
       return txDate >= dateRange.start && txDate <= dateRange.end;
     });
-  }, [transactions, dateRange]);
+  }, [accountTransactions, dateRange]);
 
   // Get used currencies in filtered transactions
   const usedCurrencies = useMemo(() => {

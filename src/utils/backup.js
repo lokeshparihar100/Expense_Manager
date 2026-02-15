@@ -1,9 +1,9 @@
 // Backup and Restore utilities for Expense Manager
 
-import { STORAGE_KEYS } from './storage';
+import { STORAGE_KEYS, DEFAULT_ACCOUNTS } from './storage';
 
 // Current backup version - increment when backup format changes
-const BACKUP_VERSION = '1.1';
+const BACKUP_VERSION = '2.0';
 
 // Currency storage keys
 const CURRENCY_STORAGE_KEY = 'expense_manager_currency_settings';
@@ -22,6 +22,8 @@ export const createBackup = () => {
   const settings = JSON.parse(localStorage.getItem(STORAGE_KEYS.SETTINGS) || '{}');
   const currencySettings = JSON.parse(localStorage.getItem(CURRENCY_STORAGE_KEY) || '{}');
   const exchangeRates = JSON.parse(localStorage.getItem(EXCHANGE_RATES_KEY) || '{}');
+  const accounts = JSON.parse(localStorage.getItem(STORAGE_KEYS.ACCOUNTS) || '[]');
+  const activeAccountId = localStorage.getItem(STORAGE_KEYS.ACTIVE_ACCOUNT) || 'default';
 
   // Get currencies used in transactions
   const currenciesUsed = [...new Set(transactions.map(t => t.currency || 'USD'))];
@@ -72,7 +74,11 @@ export const createBackup = () => {
 
     // Currency settings
     currencySettings: currencySettings,
-    exchangeRates: exchangeRates
+    exchangeRates: exchangeRates,
+
+    // Accounts (v2.0+)
+    accounts: accounts,
+    activeAccountId: activeAccountId
   };
 
   return backup;
@@ -107,6 +113,46 @@ export const exportBackup = () => {
     console.error('Backup export failed:', error);
     return { success: false, error: error.message };
   }
+};
+
+/**
+ * Migrate backup from older versions to current version
+ * @param {Object} data - Backup data to migrate
+ * @returns {Object} Migrated backup data
+ */
+export const migrateBackup = (data) => {
+  const migrated = { ...data };
+  const currentVersion = migrated.meta?.version || '1.0';
+
+  // Migration from v1.x to v2.0 (adding accounts support)
+  if (currentVersion === '1.0' || currentVersion === '1.1') {
+    // Ensure accounts exist
+    if (!migrated.accounts || migrated.accounts.length === 0) {
+      migrated.accounts = [...DEFAULT_ACCOUNTS];
+    }
+
+    // Ensure activeAccountId exists
+    if (!migrated.activeAccountId) {
+      migrated.activeAccountId = 'default';
+    }
+
+    // Add accountId to all transactions that don't have it
+    if (migrated.transactions && Array.isArray(migrated.transactions)) {
+      migrated.transactions = migrated.transactions.map(t => ({
+        ...t,
+        accountId: t.accountId || 'default'
+      }));
+    }
+
+    // Update version
+    if (migrated.meta) {
+      migrated.meta.version = BACKUP_VERSION;
+      migrated.meta.migratedFrom = currentVersion;
+      migrated.meta.migratedAt = new Date().toISOString();
+    }
+  }
+
+  return migrated;
 };
 
 /**
@@ -178,8 +224,11 @@ export const importBackup = (data, options = {}) => {
   } = options;
 
   try {
+    // Migrate backup if needed
+    const migratedData = migrateBackup(data);
+
     // Validate backup first
-    const validation = validateBackup(data);
+    const validation = validateBackup(migratedData);
     if (!validation.valid) {
       return { success: false, errors: validation.errors };
     }
@@ -190,40 +239,62 @@ export const importBackup = (data, options = {}) => {
       tagsImported: false,
       settingsImported: false,
       currencySettingsImported: false,
-      exchangeRatesImported: false
+      exchangeRatesImported: false,
+      accountsImported: false
     };
 
     // Import transactions
-    if (data.transactions && Array.isArray(data.transactions)) {
+    if (migratedData.transactions && Array.isArray(migratedData.transactions)) {
       if (replaceAll) {
         // Replace all transactions
-        localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(data.transactions));
-        results.transactionsImported = data.transactions.length;
+        localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(migratedData.transactions));
+        results.transactionsImported = migratedData.transactions.length;
       } else if (mergeTransactions) {
         // Merge with existing
         const existing = JSON.parse(localStorage.getItem(STORAGE_KEYS.TRANSACTIONS) || '[]');
         const existingIds = new Set(existing.map(t => t.id));
-        
-        const newTransactions = data.transactions.filter(t => !existingIds.has(t.id));
+
+        const newTransactions = migratedData.transactions.filter(t => !existingIds.has(t.id));
         const merged = [...existing, ...newTransactions];
-        
+
         localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(merged));
         results.transactionsImported = newTransactions.length;
-        results.transactionsSkipped = data.transactions.length - newTransactions.length;
+        results.transactionsSkipped = migratedData.transactions.length - newTransactions.length;
       }
     }
 
-    // Import tags
-    if (importTags && data.tags) {
+    // Import accounts
+    if (migratedData.accounts && Array.isArray(migratedData.accounts)) {
       if (replaceAll) {
-        localStorage.setItem(STORAGE_KEYS.TAGS, JSON.stringify(data.tags));
+        localStorage.setItem(STORAGE_KEYS.ACCOUNTS, JSON.stringify(migratedData.accounts));
+        results.accountsImported = true;
+      } else {
+        // Merge accounts, avoiding duplicates by id
+        const existingAccounts = JSON.parse(localStorage.getItem(STORAGE_KEYS.ACCOUNTS) || '[]');
+        const existingIds = new Set(existingAccounts.map(a => a.id));
+        const newAccounts = migratedData.accounts.filter(a => !existingIds.has(a.id));
+        const merged = [...existingAccounts, ...newAccounts];
+        localStorage.setItem(STORAGE_KEYS.ACCOUNTS, JSON.stringify(merged));
+        results.accountsImported = true;
+      }
+    }
+
+    // Import active account ID
+    if (migratedData.activeAccountId) {
+      localStorage.setItem(STORAGE_KEYS.ACTIVE_ACCOUNT, migratedData.activeAccountId);
+    }
+
+    // Import tags
+    if (importTags && migratedData.tags) {
+      if (replaceAll) {
+        localStorage.setItem(STORAGE_KEYS.TAGS, JSON.stringify(migratedData.tags));
         results.tagsImported = true;
       } else {
         // Merge tags
         const existingTags = JSON.parse(localStorage.getItem(STORAGE_KEYS.TAGS) || '{}');
         const mergedTags = { ...existingTags };
-        
-        for (const [category, tagList] of Object.entries(data.tags)) {
+
+        for (const [category, tagList] of Object.entries(migratedData.tags)) {
           if (!mergedTags[category]) {
             mergedTags[category] = tagList;
           } else {
@@ -233,27 +304,27 @@ export const importBackup = (data, options = {}) => {
             mergedTags[category] = [...mergedTags[category], ...newTags];
           }
         }
-        
+
         localStorage.setItem(STORAGE_KEYS.TAGS, JSON.stringify(mergedTags));
         results.tagsImported = true;
       }
     }
 
     // Import settings
-    if (importSettings && data.settings) {
-      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(data.settings));
+    if (importSettings && migratedData.settings) {
+      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(migratedData.settings));
       results.settingsImported = true;
     }
 
     // Import currency settings
-    if (importSettings && data.currencySettings) {
-      localStorage.setItem(CURRENCY_STORAGE_KEY, JSON.stringify(data.currencySettings));
+    if (importSettings && migratedData.currencySettings) {
+      localStorage.setItem(CURRENCY_STORAGE_KEY, JSON.stringify(migratedData.currencySettings));
       results.currencySettingsImported = true;
     }
 
     // Import exchange rates
-    if (importSettings && data.exchangeRates) {
-      localStorage.setItem(EXCHANGE_RATES_KEY, JSON.stringify(data.exchangeRates));
+    if (importSettings && migratedData.exchangeRates) {
+      localStorage.setItem(EXCHANGE_RATES_KEY, JSON.stringify(migratedData.exchangeRates));
       results.exchangeRatesImported = true;
     }
 
@@ -326,12 +397,63 @@ export const getCurrentStats = () => {
 };
 
 /**
+ * Migrate existing local storage data to v2.0 (accounts support)
+ * This runs automatically on app startup for existing users
+ * @returns {Object} Migration result
+ */
+export const migrateLocalStorageToV2 = () => {
+  try {
+    // Check if accounts already exist (already migrated or new user)
+    const existingAccounts = localStorage.getItem(STORAGE_KEYS.ACCOUNTS);
+    if (existingAccounts) {
+      return {
+        success: true,
+        alreadyMigrated: true,
+        message: 'Data already migrated to v2.0'
+      };
+    }
+
+    // Get existing transactions
+    const transactions = JSON.parse(localStorage.getItem(STORAGE_KEYS.TRANSACTIONS) || '[]');
+
+    // Create default account
+    const defaultAccount = [...DEFAULT_ACCOUNTS];
+    localStorage.setItem(STORAGE_KEYS.ACCOUNTS, JSON.stringify(defaultAccount));
+    localStorage.setItem(STORAGE_KEYS.ACTIVE_ACCOUNT, 'default');
+
+    // Migrate transactions - add accountId to all existing transactions
+    if (transactions.length > 0) {
+      const migratedTransactions = transactions.map(t => ({
+        ...t,
+        accountId: t.accountId || 'default'
+      }));
+      localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(migratedTransactions));
+    }
+
+    return {
+      success: true,
+      alreadyMigrated: false,
+      message: `Successfully migrated ${transactions.length} transactions to v2.0`,
+      transactionsMigrated: transactions.length
+    };
+  } catch (error) {
+    console.error('Migration to v2.0 failed:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+};
+
+/**
  * Clear all app data (use with caution)
  */
 export const clearAllData = () => {
   localStorage.removeItem(STORAGE_KEYS.TRANSACTIONS);
   localStorage.removeItem(STORAGE_KEYS.TAGS);
   localStorage.removeItem(STORAGE_KEYS.SETTINGS);
+  localStorage.removeItem(STORAGE_KEYS.ACCOUNTS);
+  localStorage.removeItem(STORAGE_KEYS.ACTIVE_ACCOUNT);
   localStorage.removeItem(CURRENCY_STORAGE_KEY);
   localStorage.removeItem(EXCHANGE_RATES_KEY);
 };
@@ -344,5 +466,7 @@ export default {
   readBackupFile,
   getCurrentStats,
   clearAllData,
+  migrateBackup,
+  migrateLocalStorageToV2,
   BACKUP_VERSION
 };

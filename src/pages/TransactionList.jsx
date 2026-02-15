@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExpense } from '../context/ExpenseContext';
 import { useSettings } from '../context/SettingsContext';
+import { useAccount } from '../context/AccountContext';
 import TransactionCard from '../components/TransactionCard';
 import { ConfirmModal } from '../components/Modal';
 import { formatDate, sortTransactionsByDateTime } from '../utils/storage';
@@ -11,6 +12,7 @@ const TransactionList = () => {
   const navigate = useNavigate();
   const { transactions, tags, deleteTransaction } = useExpense();
   const { isDark, currencies } = useSettings();
+  const { activeAccountId } = useAccount();
   const [deleteId, setDeleteId] = useState(null);
 
   // Pagination
@@ -31,12 +33,17 @@ const TransactionList = () => {
 
   const [showFilters, setShowFilters] = useState(false);
 
-  // Get currencies used in transactions
-  const usedCurrencies = useMemo(() => getUsedCurrencies(transactions), [transactions]);
+  // Filter transactions by active account first
+  const accountTransactions = useMemo(() => {
+    return transactions.filter(t => t.accountId === activeAccountId);
+  }, [transactions, activeAccountId]);
+
+  // Get currencies used in account transactions
+  const usedCurrencies = useMemo(() => getUsedCurrencies(accountTransactions), [accountTransactions]);
 
   // Filter and sort transactions
   const filteredTransactions = useMemo(() => {
-    const filtered = transactions.filter(t => {
+    const filtered = accountTransactions.filter(t => {
       if (filters.type !== 'all' && t.type !== filters.type) return false;
       if (filters.category !== 'all' && t.category !== filters.category) return false;
       if (filters.paymentMethod !== 'all' && t.paymentMethod !== filters.paymentMethod) return false;
@@ -50,7 +57,7 @@ const TransactionList = () => {
     });
     // Sort by date and time (most recent first)
     return sortTransactionsByDateTime(filtered);
-  }, [transactions, filters]);
+  }, [accountTransactions, filters]);
 
   // Reset to page 1 when filters change
   useEffect(() => {
