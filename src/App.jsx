@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ExpenseProvider } from './context/ExpenseContext';
 import { SettingsProvider } from './context/SettingsContext';
+import { AccountProvider } from './context/AccountContext';
 import Layout from './components/Layout';
 import InstallPrompt from './components/InstallPrompt';
 import ScheduledBackupManager from './components/ScheduledBackupManager';
@@ -21,26 +22,28 @@ const basePath = import.meta.env.BASE_URL || '/';
 function App() {
   return (
     <SettingsProvider>
-      <ExpenseProvider>
-        <Router basename={basePath}>
-          <Layout>
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/add" element={<AddTransaction />} />
-              <Route path="/add/:type" element={<AddTransaction />} />
-              <Route path="/edit/:id" element={<EditTransaction />} />
-              <Route path="/transactions" element={<TransactionList />} />
-              <Route path="/tags" element={<ManageTags />} />
-              <Route path="/stats" element={<Statistics />} />
-              <Route path="/reports" element={<Reports />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/help" element={<Help />} />
-            </Routes>
-            <InstallPrompt />
-            <ScheduledBackupManager />
-          </Layout>
-        </Router>
-      </ExpenseProvider>
+      <AccountProvider>
+        <ExpenseProvider>
+          <Router basename={basePath}>
+            <Layout>
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/add" element={<AddTransaction />} />
+                <Route path="/add/:type" element={<AddTransaction />} />
+                <Route path="/edit/:id" element={<EditTransaction />} />
+                <Route path="/transactions" element={<TransactionList />} />
+                <Route path="/tags" element={<ManageTags />} />
+                <Route path="/stats" element={<Statistics />} />
+                <Route path="/reports" element={<Reports />} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="/help" element={<Help />} />
+              </Routes>
+              <InstallPrompt />
+              <ScheduledBackupManager />
+            </Layout>
+          </Router>
+        </ExpenseProvider>
+      </AccountProvider>
     </SettingsProvider>
   );
 }

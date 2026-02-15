@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useExpense } from '../context/ExpenseContext';
 import { useSettings } from '../context/SettingsContext';
+import { useAccount } from '../context/AccountContext';
 import { getTodayForInput, getCurrentTimeForInput } from '../utils/storage';
 import ImageUpload from './ImageUpload';
 import { suggestIconForText } from './IconPicker';
@@ -27,7 +28,8 @@ const TransactionForm = ({
 }) => {
   const { tags, addTag, transactions } = useExpense();
   const { isDark, defaultCurrency, currencies } = useSettings();
-  
+  const { activeAccountId } = useAccount();
+
   const [formData, setFormData] = useState({
     type: type,
     amount: '',
@@ -41,6 +43,7 @@ const TransactionForm = ({
     time: getCurrentTimeForInput(),
     notes: '',
     invoiceImages: [],
+    accountId: activeAccountId || 'default',
     // Reminder fields
     reminderType: REMINDER_TYPES.CUSTOM_DURATION,
     reminderValue: '1',
@@ -89,6 +92,7 @@ const TransactionForm = ({
         time: initialData.time || getCurrentTimeForInput(),
         currency: initialData.currency || defaultCurrency,
         invoiceImages: initialData.invoiceImages || [],
+        accountId: initialData.accountId || activeAccountId || 'default',
         // Handle both old and new reminder format
         reminderType: initialData.reminderType || REMINDER_TYPES.CUSTOM_DURATION,
         reminderValue: initialData.reminderValue || '1',
@@ -96,7 +100,7 @@ const TransactionForm = ({
         reminderDate: initialData.reminderDate || ''
       });
     }
-  }, [initialData, defaultCurrency]);
+  }, [initialData, defaultCurrency, activeAccountId]);
 
   useEffect(() => {
     setFormData(prev => ({ ...prev, type }));

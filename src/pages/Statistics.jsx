@@ -1,14 +1,16 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useExpense } from '../context/ExpenseContext';
+import { useAccount } from '../context/AccountContext';
 import { formatCurrency } from '../utils/storage';
 
 const Statistics = () => {
   const navigate = useNavigate();
   const { transactions, getStats } = useExpense();
+  const { activeAccountId } = useAccount();
   const [period, setPeriod] = useState('month');
 
-  const stats = getStats(period);
+  const stats = getStats(period, null, null, activeAccountId);
 
   // Get top categories
   const topCategories = useMemo(() => {

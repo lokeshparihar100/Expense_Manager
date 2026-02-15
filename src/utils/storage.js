@@ -2,7 +2,9 @@
 const STORAGE_KEYS = {
   TRANSACTIONS: 'expense_manager_transactions',
   TAGS: 'expense_manager_tags',
-  SETTINGS: 'expense_manager_settings'
+  SETTINGS: 'expense_manager_settings',
+  ACCOUNTS: 'expense_manager_accounts',
+  ACTIVE_ACCOUNT: 'expense_manager_active_account'
 };
 
 // Default tags with icons
@@ -224,4 +226,53 @@ export const groupByDate = (transactions) => {
   return grouped;
 };
 
-export { STORAGE_KEYS, DEFAULT_TAGS };
+// Default accounts for new users
+const DEFAULT_ACCOUNTS = [
+  {
+    id: 'default',
+    name: 'Daily Expenses',
+    icon: '💰',
+    color: '#3b82f6',
+    isDefault: true,
+    createdAt: new Date().toISOString()
+  }
+];
+
+// Get all accounts
+export const getAccounts = () => {
+  const accounts = getFromStorage(STORAGE_KEYS.ACCOUNTS);
+  if (!accounts || accounts.length === 0) {
+    saveToStorage(STORAGE_KEYS.ACCOUNTS, DEFAULT_ACCOUNTS);
+    return DEFAULT_ACCOUNTS;
+  }
+  return accounts;
+};
+
+// Save all accounts
+export const saveAccounts = (accounts) => {
+  return saveToStorage(STORAGE_KEYS.ACCOUNTS, accounts);
+};
+
+// Get active account ID
+export const getActiveAccountId = () => {
+  const activeId = getFromStorage(STORAGE_KEYS.ACTIVE_ACCOUNT);
+  if (!activeId) {
+    // Set default account as active
+    saveToStorage(STORAGE_KEYS.ACTIVE_ACCOUNT, 'default');
+    return 'default';
+  }
+  return activeId;
+};
+
+// Save active account ID
+export const saveActiveAccountId = (accountId) => {
+  return saveToStorage(STORAGE_KEYS.ACTIVE_ACCOUNT, accountId);
+};
+
+// Get account by ID
+export const getAccountById = (id) => {
+  const accounts = getAccounts();
+  return accounts.find(acc => acc.id === id);
+};
+
+export { STORAGE_KEYS, DEFAULT_TAGS, DEFAULT_ACCOUNTS };

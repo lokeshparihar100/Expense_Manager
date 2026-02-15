@@ -76,6 +76,12 @@ export const ExpenseProvider = ({ children }) => {
     return transactions.find(t => t.id === id);
   };
 
+  // Get transactions filtered by account
+  const getTransactionsByAccount = (accountId) => {
+    if (!accountId) return transactions;
+    return transactions.filter(t => t.accountId === accountId);
+  };
+
   // Add new tag to a category (with icon support)
   const addTag = (category, tagName, icon = '📦') => {
     const tagExists = tags[category].some(t => t.name === tagName);
@@ -138,22 +144,27 @@ export const ExpenseProvider = ({ children }) => {
     return tag?.icon || '📦';
   };
 
-  // Get statistics with optional currency conversion
-  const getStats = (period = 'all', targetCurrency = null, exchangeRates = null) => {
+  // Get statistics with optional currency conversion and account filtering
+  const getStats = (period = 'all', targetCurrency = null, exchangeRates = null, accountId = null) => {
     let filteredTransactions = [...transactions];
-    
+
+    // Filter by account if specified
+    if (accountId) {
+      filteredTransactions = filteredTransactions.filter(t => t.accountId === accountId);
+    }
+
     const now = new Date();
     if (period === 'today') {
       const today = new Date().toISOString().split('T')[0];
-      filteredTransactions = transactions.filter(t => t.date === today);
+      filteredTransactions = filteredTransactions.filter(t => t.date === today);
     } else if (period === 'week') {
       const weekAgo = new Date();
       weekAgo.setDate(weekAgo.getDate() - 7);
-      filteredTransactions = transactions.filter(t => new Date(t.date) >= weekAgo);
+      filteredTransactions = filteredTransactions.filter(t => new Date(t.date) >= weekAgo);
     } else if (period === 'month') {
       const monthAgo = new Date();
       monthAgo.setMonth(monthAgo.getMonth() - 1);
-      filteredTransactions = transactions.filter(t => new Date(t.date) >= monthAgo);
+      filteredTransactions = filteredTransactions.filter(t => new Date(t.date) >= monthAgo);
     }
 
     // Helper to convert amount if needed
@@ -212,6 +223,7 @@ export const ExpenseProvider = ({ children }) => {
     updateTransaction,
     deleteTransaction,
     getTransactionById,
+    getTransactionsByAccount,
     addTag,
     updateTag,
     deleteTag,
