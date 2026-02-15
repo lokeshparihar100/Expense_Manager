@@ -37,6 +37,7 @@ import { useSettings } from '../context/SettingsContext';
 import { useExpense } from '../context/ExpenseContext';
 import Modal, { ConfirmModal } from '../components/Modal';
 import { getUsedCurrencies } from '../utils/currency';
+import PinManager from '../components/PinManager';
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -831,6 +832,20 @@ const Settings = () => {
 
         <p className={`text-xs mt-3 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
           💡 Tip: You can customize the reminder for each transaction individually.
+        </p>
+      </div>
+
+      {/* PIN Security */}
+      <div className={`rounded-2xl p-4 mb-4 shadow-sm ${isDark ? 'bg-slate-800' : 'bg-white'}`}>
+        <h2 className={`font-semibold mb-3 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <span className="text-xl">🔐</span>
+          Security
+        </h2>
+
+        <PinManager />
+
+        <p className={`text-xs mt-3 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+          💡 Tip: PIN protection adds an extra layer of security to your financial data. You'll need to enter your PIN every time you open the app.
         </p>
       </div>
 
