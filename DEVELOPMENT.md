@@ -45,6 +45,8 @@ Expense_Manager/
 │
 ├── src/
 │   ├── components/            # Reusable UI components
+│   │   ├── AccountManager.jsx # Account management interface
+│   │   ├── AccountSelector.jsx # Account switcher dropdown
 │   │   ├── Calculator.jsx     # Built-in calculator modal
 │   │   ├── Charts.jsx         # Chart components (Pie, Bar, Donut, HorizontalBar)
 │   │   ├── DateRangePicker.jsx # Date range with presets & multi-year
@@ -56,10 +58,11 @@ Expense_Manager/
 │   │   ├── Modal.jsx          # Modal dialogs (Modal, ConfirmModal)
 │   │   ├── ReminderModal.jsx  # Payment reminder notifications
 │   │   ├── StatCard.jsx       # Statistics display card
-│   │   ├── TransactionCard.jsx # Transaction list item
+│   │   ├── TransactionCard.jsx # Transaction list item (with copy feature)
 │   │   └── TransactionForm.jsx # Add/Edit transaction form
 │   │
 │   ├── context/               # React Context providers
+│   │   ├── AccountContext.jsx # Multi-account management state
 │   │   ├── ExpenseContext.jsx # Transactions, tags state
 │   │   └── SettingsContext.jsx # Theme, currency, settings
 │   │
@@ -75,11 +78,13 @@ Expense_Manager/
 │   │   └── Help.jsx           # Help & FAQ page
 │   │
 │   ├── utils/                 # Utility functions
-│   │   ├── storage.js         # LocalStorage helpers, sorting, date/time utilities
-│   │   ├── backup.js          # Backup/restore utilities
+│   │   ├── storage.js         # LocalStorage helpers, sorting, date/time utilities, account utilities
+│   │   ├── backup.js          # Backup/restore utilities, v2 migration
 │   │   ├── currency.js        # Currency conversion & formatting
 │   │   ├── exportReport.js    # PDF/CSV export
-│   │   └── reminders.js       # Reminder logic
+│   │   ├── googleDrive.js     # Google Drive backup integration
+│   │   ├── scheduledBackup.js # Scheduled backup reminders
+│   │   └── reminders.js       # Payment reminder logic
 │   │
 │   ├── App.jsx                # Main app with routing
 │   ├── main.jsx               # Entry point
