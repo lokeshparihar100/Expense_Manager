@@ -42,8 +42,38 @@ Welcome to Daily Expense Manager! This guide will help you install the app on yo
 
 ## 🎯 Features Overview
 
+### 👥 Multi-Account Support
+
+Manage multiple accounts for different purposes (Personal, Business, Family, etc.)!
+
+**Creating Accounts:**
+1. Go to **More** → **Manage Accounts**
+2. Tap **"+ Add Account"**
+3. Enter account name and optional description
+4. Choose an icon (emoji) for the account
+5. Select a color theme
+6. Tap **"Create Account"**
+
+**Switching Accounts:**
+- Use the **account selector** in the top navigation bar
+- Tap to see all accounts and switch instantly
+- Each account shows its own transactions, reports, and statistics
+
+**Managing Accounts:**
+- **Edit**: Change name, description, icon, or color
+- **Delete**: Remove an account and all its transactions (requires confirmation)
+- **Default Account**: The "Default" account is created automatically and cannot be deleted
+
+**How it works:**
+- Each account has completely separate transactions
+- Reports and statistics are account-specific
+- Tags (categories, payees, payment methods) are shared across all accounts
+- Currency settings are global (same across all accounts)
+- When you add a transaction, it's automatically associated with the active account
+
 ### 📊 Dashboard
-The main screen shows:
+The main screen shows (for the currently active account):
+- **Account selector** to switch between accounts
 - **Income/Expense/Balance** summary cards
 - **Quick actions** to add expenses or income
 - **Payment reminders** banner (if any upcoming)
@@ -85,8 +115,35 @@ Access from the bottom navigation → **"History"**
   - Navigate between pages using Previous/Next buttons
   - Smart page numbers with ellipsis for large transaction lists
   - Shows current page and total pages
-- **Edit** or **Delete** any transaction
+- **Edit**, **Copy**, or **Delete** any transaction
 - View attached **invoice images**
+
+### 📋 Copy Transaction Feature
+
+Quickly duplicate any existing transaction with one tap!
+
+**How to Copy:**
+1. Find the transaction you want to copy
+2. Tap the **"Copy"** button (blue button between Edit and Delete)
+3. A new transaction is created instantly with:
+   - Same amount and currency
+   - Same description
+   - Same category, payee, and payment method
+   - Same status
+   - **Today's date** (automatically updated)
+   - Same invoice images (if any)
+   - Same notes
+
+**Use Cases:**
+- **Recurring expenses**: Copy monthly bills or subscriptions
+- **Similar purchases**: Copy grocery or fuel expenses
+- **Template transactions**: Create a "template" transaction and copy it when needed
+- **Quick entry**: Faster than creating from scratch
+
+**After Copying:**
+- The copied transaction appears as a new, regular transaction
+- You can edit, delete, or view it like any other transaction
+- It's associated with the currently active account
 
 ### 🏷️ Managing Tags
 
@@ -114,6 +171,8 @@ Each tag has an **icon/emoji** you can customize!
 ### 📈 Reports
 
 Access from bottom navigation → **"Reports"**
+
+**Note:** Reports show data only for the currently active account. Switch accounts to view reports for different accounts.
 
 Features:
 - **Date range presets** (This Week, This Month, Last 7/30/90 Days, This Year)
@@ -182,9 +241,9 @@ Perfect for travelers or managing expenses in multiple currencies!
 - Set default reminder time for new transactions
 
 #### 💾 Backup & Restore
-- **Export Backup**: Download all your data as a JSON file
-- **Import Backup**: Restore from a backup file
-- **Clear All Data**: Reset the app (irreversible!)
+- **Export Backup**: Download all your data as a JSON file (includes all accounts and transactions)
+- **Import Backup**: Restore from a backup file (restores all accounts)
+- **Clear All Data**: Reset the app and delete all accounts (irreversible!)
 
 #### ⏰ Scheduled Backup (Backup Reminders)
 Protect your data with scheduled backup reminders that prompt you to download backups!
@@ -358,6 +417,17 @@ If you want anyone to use the app (not just test users):
 
 ## 💡 Tips & Tricks
 
+### Multi-Account Organization
+- Create separate accounts for **Personal**, **Business**, and **Family** expenses
+- Use different colored icons to quickly identify accounts
+- Keep business expenses separate for tax purposes
+- Track shared family expenses in a dedicated family account
+
+### Copy Instead of Re-entering
+- Use the **Copy** button for recurring transactions
+- Create a "template" transaction and copy it when needed
+- Perfect for monthly subscriptions or regular expenses
+
 ### Quick Amount Entry
 - Tap the **calculator icon** next to the amount field
 - Do quick calculations like `150+75+30`
@@ -383,8 +453,8 @@ If you want anyone to use the app (not just test users):
 
 ### Regular Backups
 - Regularly export backups from Settings
-- Backups include all transactions, tags, and images
-- Store backup files safely (cloud storage, email to yourself)
+- Backups include all accounts, transactions, tags, and images
+- Store backup files safely (cloud storage, email to yourself, or use Google Drive backup)
 
 ### Multi-Currency for Travel
 - Before traveling, go to Settings → Currency Settings
@@ -479,6 +549,30 @@ Found a bug or have an idea for a new feature? You can report it directly from t
 ---
 
 ## 📝 Version History
+
+**v1.6.0** - Multi-Account Support & Copy Transactions
+- 👥 **Multi-Account Support**: Manage separate accounts for different purposes
+  - Create multiple accounts (Personal, Business, Family, etc.)
+  - Each account has its own independent set of transactions
+  - Switch between accounts seamlessly from the navigation bar
+  - Account-specific reports and statistics
+  - Visual account management interface with edit and delete options
+  - Automatic data migration from single account to multi-account structure
+- 📋 **Copy Transaction Feature**: Quickly duplicate existing transactions
+  - New "Copy" button alongside Edit and Delete actions
+  - Copies all transaction details (amount, category, payee, payment method, etc.)
+  - Automatically sets date to today
+  - Invoice images are also copied
+  - Perfect for recurring expenses with similar details
+- 🎨 **UI Enhancements**:
+  - Account selector in navigation bar
+  - Account management page accessible from More section
+  - Improved account switching experience
+- 📧 **Contact & Privacy**:
+  - Added Contact Us section with email support
+  - Comprehensive Privacy Policy modal
+  - Creator information with LinkedIn and Portfolio links
+  - Copyright information
 
 **v1.5.0** - Smart Auto-fill & Enhanced Transaction Management
 - 🎯 **Smart Auto-fill**: Category and payment method auto-fill based on previous transactions with the same payee

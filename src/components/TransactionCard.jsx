@@ -7,7 +7,7 @@ import ImageViewer from './ImageViewer';
 
 const TransactionCard = ({ transaction, onDelete }) => {
   const navigate = useNavigate();
-  const { getTagIcon } = useExpense();
+  const { getTagIcon, addTransaction } = useExpense();
   const { formatAmount, hideAmounts, isDark } = useSettings();
   const isExpense = transaction.type === 'expense';
   const [showImageViewer, setShowImageViewer] = useState(false);
@@ -24,6 +24,30 @@ const TransactionCard = ({ transaction, onDelete }) => {
       default:
         return isDark ? 'bg-slate-700 text-slate-300' : 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const handleCopy = () => {
+    // Get today's date in YYYY-MM-DD format
+    const today = new Date().toISOString().split('T')[0];
+
+    // Create a new transaction with the same details but today's date
+    const copiedTransaction = {
+      type: transaction.type,
+      amount: transaction.amount,
+      currency: transaction.currency,
+      description: transaction.description,
+      category: transaction.category,
+      payee: transaction.payee,
+      paymentMethod: transaction.paymentMethod,
+      status: transaction.status,
+      date: today,
+      time: transaction.time,
+      invoiceImages: transaction.invoiceImages || [],
+      accountId: transaction.accountId,
+      notes: transaction.notes
+    };
+
+    addTransaction(copiedTransaction);
   };
 
   // Get icons from context (dynamic based on user's tags)
@@ -137,8 +161,8 @@ const TransactionCard = ({ transaction, onDelete }) => {
           <button
             onClick={() => setShowImageViewer(true)}
             className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-              isDark 
-                ? 'text-slate-300 hover:bg-slate-700' 
+              isDark
+                ? 'text-slate-300 hover:bg-slate-700'
                 : 'text-gray-600 hover:bg-gray-50'
             }`}
           >
@@ -148,18 +172,28 @@ const TransactionCard = ({ transaction, onDelete }) => {
         <button
           onClick={() => navigate(`/edit/${transaction.id}`)}
           className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-            isDark 
-              ? 'text-primary-400 hover:bg-slate-700' 
+            isDark
+              ? 'text-primary-400 hover:bg-slate-700'
               : 'text-primary-600 hover:bg-primary-50'
           }`}
         >
           Edit
         </button>
         <button
+          onClick={handleCopy}
+          className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+            isDark
+              ? 'text-blue-400 hover:bg-slate-700'
+              : 'text-blue-600 hover:bg-blue-50'
+          }`}
+        >
+          Copy
+        </button>
+        <button
           onClick={() => onDelete && onDelete(transaction.id)}
           className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-            isDark 
-              ? 'text-red-400 hover:bg-slate-700' 
+            isDark
+              ? 'text-red-400 hover:bg-slate-700'
               : 'text-red-600 hover:bg-red-50'
           }`}
         >

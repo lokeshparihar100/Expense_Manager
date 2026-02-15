@@ -5,7 +5,9 @@ import {
   getActiveAccountId,
   saveActiveAccountId,
   getAccountById,
-  generateId
+  generateId,
+  getTransactions,
+  saveTransactions
 } from '../utils/storage';
 import { migrateLocalStorageToV2 } from '../utils/backup';
 
@@ -101,9 +103,16 @@ export const AccountProvider = ({ children }) => {
       return { success: false, error: 'Cannot delete active account. Switch to another account first.' };
     }
 
+    // Delete the account
     const updatedAccounts = accounts.filter(acc => acc.id !== id);
     setAccounts(updatedAccounts);
     saveAccounts(updatedAccounts);
+
+    // Also delete all transactions associated with this account
+    const allTransactions = getTransactions();
+    const filteredTransactions = allTransactions.filter(transaction => transaction.accountId !== id);
+    saveTransactions(filteredTransactions);
+
     return { success: true };
   };
 
