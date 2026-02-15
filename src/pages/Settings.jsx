@@ -37,6 +37,7 @@ import { useSettings } from '../context/SettingsContext';
 import { useExpense } from '../context/ExpenseContext';
 import Modal, { ConfirmModal } from '../components/Modal';
 import { getUsedCurrencies } from '../utils/currency';
+import PinManager from '../components/PinManager';
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -834,6 +835,20 @@ const Settings = () => {
         </p>
       </div>
 
+      {/* PIN Security */}
+      <div className={`rounded-2xl p-4 mb-4 shadow-sm ${isDark ? 'bg-slate-800' : 'bg-white'}`}>
+        <h2 className={`font-semibold mb-3 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <span className="text-xl">🔐</span>
+          Security
+        </h2>
+
+        <PinManager />
+
+        <p className={`text-xs mt-3 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+          💡 Tip: PIN protection adds an extra layer of security to your financial data. You'll need to enter your PIN every time you open the app.
+        </p>
+      </div>
+
       {/* Backup & Data - Collapsible Section */}
       <div className={`rounded-2xl p-4 mb-4 shadow-sm ${isDark ? 'bg-slate-800' : 'bg-white'}`}>
         <h2 className={`font-semibold mb-3 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
@@ -1276,7 +1291,7 @@ const Settings = () => {
           <div className="flex-1">
             <h3 className="font-semibold mb-1">Daily Expense Manager</h3>
             <p className="text-sm opacity-90">
-              Version 1.6.0 - Multi-Account Support & Copy Transactions<br />
+              Version 1.7.0 - Optional PIN Security<br />
               Your data is stored locally on this device.
               Regular backups are recommended.
             </p>

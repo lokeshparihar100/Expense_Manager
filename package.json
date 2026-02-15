@@ -1,7 +1,7 @@
 {
   "name": "expense_manager",
-  "version": "1.6.0",
-  "description": "A modern, privacy-first expense tracking PWA with multi-currency and multi-account support",
+  "version": "1.7.0",
+  "description": "A modern, privacy-first expense tracking PWA with multi-currency, multi-account support, and optional PIN security",
   "type": "module",
   "scripts": {
     "dev": "vite",

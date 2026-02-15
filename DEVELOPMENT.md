@@ -56,7 +56,11 @@ Expense_Manager/
 │   │   ├── InstallPrompt.jsx  # PWA install prompt
 │   │   ├── Layout.jsx         # Main layout with navigation
 │   │   ├── Modal.jsx          # Modal dialogs (Modal, ConfirmModal)
+│   │   ├── PinEntry.jsx       # PIN entry screen for app unlock
+│   │   ├── PinManager.jsx     # PIN management in Settings (Set/Change/Remove)
+│   │   ├── PinSetup.jsx       # First-time PIN setup screen
 │   │   ├── ReminderModal.jsx  # Payment reminder notifications
+│   │   ├── ScheduledBackupManager.jsx # Scheduled backup component
 │   │   ├── StatCard.jsx       # Statistics display card
 │   │   ├── TransactionCard.jsx # Transaction list item (with copy feature)
 │   │   └── TransactionForm.jsx # Add/Edit transaction form
@@ -83,6 +87,7 @@ Expense_Manager/
 │   │   ├── currency.js        # Currency conversion & formatting
 │   │   ├── exportReport.js    # PDF/CSV export
 │   │   ├── googleDrive.js     # Google Drive backup integration
+│   │   ├── pin.js             # PIN security utilities (hash, verify, manage)
 │   │   ├── scheduledBackup.js # Scheduled backup reminders
 │   │   └── reminders.js       # Payment reminder logic
 │   │
@@ -136,23 +141,35 @@ npm run preview
 ### Component Hierarchy
 
 ```
-App
-├── SettingsProvider (theme, currency)
-│   └── ExpenseProvider (transactions, tags)
-│       └── Layout
-│           ├── Header (theme toggle, privacy toggle)
-│           ├── Routes
-│           │   ├── Dashboard
-│           │   ├── AddTransaction → TransactionForm
-│           │   ├── EditTransaction → TransactionForm
-│           │   ├── TransactionList → TransactionCard[]
-│           │   ├── ManageTags
-│           │   ├── Statistics
-│           │   ├── Reports → Charts, DateRangePicker
-│           │   ├── Settings
-│           │   └── Help
-│           └── BottomNavigation
-└── ReminderModal (global overlay)
+App (with PIN flow state management)
+├── First-time launch (no PIN setup completed)
+│   └── SettingsProvider
+│       └── PinSetup (intro → set → confirm)
+│
+├── PIN enabled but not verified
+│   └── SettingsProvider
+│       └── PinEntry (PIN unlock screen)
+│
+└── Normal app flow (PIN verified or disabled)
+    ├── SettingsProvider (theme, currency)
+    │   ├── AccountProvider (multi-account management)
+    │   │   └── ExpenseProvider (transactions, tags)
+    │   │       └── Layout
+    │   │           ├── Header (theme toggle, privacy toggle)
+    │   │           ├── Routes
+    │   │           │   ├── Dashboard
+    │   │           │   ├── AddTransaction → TransactionForm
+    │   │           │   ├── EditTransaction → TransactionForm
+    │   │           │   ├── TransactionList → TransactionCard[]
+    │   │           │   ├── ManageTags
+    │   │           │   ├── Statistics
+    │   │           │   ├── Reports → Charts, DateRangePicker
+    │   │           │   ├── Settings → PinManager
+    │   │           │   └── Help
+    │   │           ├── BottomNavigation
+    │   │           ├── InstallPrompt
+    │   │           └── ScheduledBackupManager
+    │   └── ReminderModal (global overlay)
 ```
 
 ### Data Flow
@@ -300,6 +317,51 @@ Transaction list shows 20 items per page with:
 - Auto-scroll to top on page change
 - Auto-reset to page 1 when filters change
 
+### PIN Security
+
+Optional 4-digit PIN protection to secure financial data:
+
+**Components:**
+- **PinSetup**: First-time setup flow (intro → set → confirm)
+- **PinEntry**: App unlock screen with auto-verify
+- **PinManager**: Settings component (set/change/remove PIN)
+
+**Implementation:**
+```javascript
+// PIN hashing (simple hash for local storage)
+const hashPin = (pin) => {
+  let hash = 0;
+  for (let i = 0; i < pin.length; i++) {
+    const char = pin.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return hash.toString();
+};
+
+// PIN verification
+const verifyPin = (inputPin) => {
+  const storedHash = localStorage.getItem('expense_manager_pin');
+  const inputHash = hashPin(inputPin);
+  return { success: storedHash === inputHash };
+};
+```
+
+**App Flow:**
+1. Check if PIN setup completed (`expense_manager_pin_setup_completed`)
+2. If not → Show `PinSetup` component
+3. If setup done, check if PIN enabled (`expense_manager_pin_enabled`)
+4. If enabled and not verified → Show `PinEntry` component
+5. If verified or disabled → Show normal app
+
+**Features:**
+- Auto-verify when 4 digits entered
+- Shake animation on incorrect PIN
+- Attempt counter with help message
+- Mobile-friendly numeric keyboard
+- Full dark mode support
+- Secure hash storage
+
 ---
 
 ## Data Storage
@@ -314,6 +376,9 @@ Transaction list shows 20 items per page with:
 | `expense_manager_currency_settings` | Currency preferences |
 | `expense_manager_exchange_rates` | Exchange rates cache |
 | `expense_manager_reminder_settings` | Reminder preferences |
+| `expense_manager_pin` | Hashed PIN for security |
+| `expense_manager_pin_enabled` | PIN enabled status (boolean) |
+| `expense_manager_pin_setup_completed` | PIN setup completion flag |
 
 ### Storage Utility Functions
 
@@ -489,13 +554,26 @@ Currently no automated tests. Manual testing recommended for:
    - Description field is optional
    - Time field auto-fills with current time
    - Auto-fill works for known payees
-2. Multi-currency conversion
-3. Transaction sorting by date and time
-4. Pagination (20 items per page)
-5. Dark mode across all pages
-6. PWA installation on iOS/Android
-7. Backup/restore functionality
-8. Offline functionality
+   - Copy transaction feature
+2. Multi-account management
+   - Account creation, editing, deletion
+   - Account switching
+   - Cascade delete of transactions
+3. Multi-currency conversion
+4. Transaction sorting by date and time
+5. Pagination (20 items per page)
+6. PIN Security
+   - First-time setup (set or skip)
+   - PIN entry on app launch
+   - Change/remove PIN from Settings
+   - Incorrect PIN handling (shake, attempts)
+   - Dark mode support for all PIN screens
+7. Dark mode across all pages
+8. PWA installation on iOS/Android
+9. Backup/restore functionality
+10. Google Drive integration
+11. Scheduled backups
+12. Offline functionality
 
 ---
 
